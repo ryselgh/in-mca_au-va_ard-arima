@@ -1,18 +1,25 @@
 import re
+import warnings
 from os import listdir
 from os.path import isfile, join
 from scipy import stats
 import numpy as np
 import sklearn.preprocessing as skl
 import pandas as pd
+from pandas.plotting import register_matplotlib_converters
+from pandas.plotting import autocorrelation_plot as acf_plot
+from pandas.plotting import lag_plot
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima_model import ARIMA
-from pandas.plotting import register_matplotlib_converters
+from sklearn.metrics import mean_squared_error
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.graphics.tsaplots import plot_pacf
 
 #initialization:
 register_matplotlib_converters()
+warnings.filterwarnings("ignore")
 mpl.rcParams['figure.dpi'] = 300
 scaler = skl.MinMaxScaler(feature_range=(-1, 1), copy=False)
 
@@ -43,7 +50,6 @@ for x in valence:
 val_ewe = []
 for csv_file in valence_csv:
     new_val_ewe = pd.read_csv(val_gs_path + csv_file, sep=',')
-    new_val_ewe.columns = new_val_ewe.columns.str.replace(' ', '')
     val_ewe.append(new_val_ewe)
 for x in val_ewe:
     x.index = x[index_name]
@@ -61,7 +67,6 @@ for x in arousal:
 aro_ewe = []
 for csv_file in arousal_csv:
     new_aro_ewe = pd.read_csv(aro_gs_path + csv_file, sep=',')
-    new_aro_ewe.columns = new_aro_ewe.columns.str.replace(' ', '')
     aro_ewe.append(new_aro_ewe)
 for x in aro_ewe:
     x.index = x[index_name]
@@ -135,21 +140,51 @@ def get_all_stationarity(win, can_plot=True):
         get_stationarity(val_ewe[i], win, 'valence', can_plot)
         get_stationarity(aro_ewe[i], win, 'arousal', can_plot)
         print('')
-    
+
+def plot_ACF_PACF(df):
+    # plot ACF and PACF
+    minus_shift = df - df.shift()
+    minus_shift.dropna(inplace=True)
+    df = minus_shift
+    acf_plot(df, ax=plt.gca())
+    plt.title('P17')
+    plt.show()
+    plot_acf(df, ax=plt.gca(), lags=range(50))
+    plt.show()
+    plot_pacf(df, ax=plt.gca(), lags=range(50))
+    plt.show()
+
 #AR,0,0
 #AR: PACF
 #fit -> theta, alpha
-def apply_ARIMA(data, index, col_key, ylabel, p=5, d=0, q=0):
-    model = ARIMA(data[index][col_key], order=(p,d,q))
-    results = model.fit(disp=-1)
-    plt.plot(data[index][col_key], label = 'Original')
+def apply_ARIMA(data, ylabel, p=2, d=1, q=2):
+    model = ARIMA(data[gs_key], order=(p,d,q))
+    results = model.fit(disp=-1)    
+    
+    minus_shift = data - data.shift()
+    minus_shift.dropna(inplace=True)
+    
+    plt.figure(figsize=(100,5))
+    plt.plot(minus_shift, label = 'minus shift')
     plt.plot(results.fittedvalues, color='red', label = 'ARIMA')
     plt.legend(loc = 'best')
     plt.title('ARIMA model')
     plt.ylabel(ylabel)
     plt.xlabel(index_name)
     plt.show()
-
+    
+    predictions_ARIMA_diff = pd.Series(results.fittedvalues, copy=True)
+    predictions_ARIMA_diff_cumsum = predictions_ARIMA_diff.cumsum()
+    predictions_ARIMA_log = pd.Series(data[gs_key].iloc[0], index=data.index)
+    predictions_ARIMA_log = predictions_ARIMA_log.add(predictions_ARIMA_diff_cumsum, fill_value=0)
+    predictions_ARIMA = np.exp(predictions_ARIMA_log) - 1
+    plt.plot(data, label='original')
+    plt.plot(predictions_ARIMA, label='ARIMA prediction')
+    plt.legend(loc = 'best')
+    plt.title('Predictions')
+    plt.ylabel(ylabel)
+    plt.xlabel(index_name)
+    plt.show()
 
 #data analysis:
 """ Copy-Paste precompiled functions:
@@ -162,6 +197,7 @@ plot_ewe()
 
 get_stationarity(val_ewe[0], 1000, 'valence (gold std)')
 get_stationarity(aro_ewe[0], 1000, 'arousal (gold std)')
+get_stationarity(aro_ewe[1], 1000, 'arousal (gold std)')
 
 get_all_stationarity(1000)
 get_all_stationarity(1000, can_plot=False)
@@ -169,8 +205,15 @@ get_all_stationarity(1000, can_plot=False)
 apply_ARIMA(au, 0, au_cols[0], 'AU')
 apply_ARIMA(valence, 0, va_cols[0], 'valence')
 apply_ARIMA(arousal, 0, va_cols[0], 'arousal')
-"""
+
 for i in range(len(au)):
     plot_data(au[i], 'AU', au_csv[i], fs=3)
 plot_ewe()
 get_all_stationarity(1000)
+
+apply_ARIMA(aro_ewe, 0, 'gold standard', 'arousal (ewe)')
+"""
+
+df = aro_ewe[1]
+plot_ACF_PACF(df)
+apply_ARIMA(df, 'arousal', p=5, d=1, q=0)
