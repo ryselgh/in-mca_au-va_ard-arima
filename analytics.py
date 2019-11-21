@@ -20,14 +20,14 @@ from statsmodels.graphics.tsaplots import plot_pacf
 #initialization:
 register_matplotlib_converters()
 warnings.filterwarnings("ignore")
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.dpi'] = 1200
 scaler = skl.MinMaxScaler(feature_range=(-1, 1), copy=False)
 
 valence_path = './emotional_behaviour/valence/'
 arousal_path = './emotional_behaviour/arousal/'
 val_gs_path = './emotional_behaviour/gold_standard/valence/'
 aro_gs_path = './emotional_behaviour/gold_standard/arousal/'
-au_path = './AU/'
+au_path = './AU_reindex/'
 index_name = 'time'
 gs_key = ['gold standard']
 
@@ -78,7 +78,7 @@ for csv_file in au_csv:
     new_au.columns = new_au.columns.str.replace(' ', '')
     au.append(new_au)
 for x in au:
-    x.index = x['timestamp']
+    x.index = x[index_name]
     x.index.names = [index_name]
     x.drop(x.columns.difference(au_cols), 1, inplace=True)
     scaler.fit(np.array((0, 5)).reshape(-1, 1))
@@ -86,7 +86,7 @@ for x in au:
         scaler.transform(x[col].values.reshape(-1, 1))
 
 
-#functions:   
+#functions:
 def plot_data(data, ylabel, title, show_ewe=False, va_ewe=None, fs=8):
     for col in data.columns:
         plt.plot(data[col], label=col)
@@ -134,6 +134,33 @@ def get_stationarity(data, win, ylabel, can_plot=True):
         print('\t{}: {}'.format(key, value))
     print('')
     
+def get_aug_stationarity(data, significance=0.05):
+    
+    p_value = None
+    is_stationary = None
+
+    #Dickey-Fuller test:
+    adf_test = adfuller(data.iloc[:,0].values, autolag='AIC')
+    
+    p_value = adf_test[1]
+    
+    if (p_value < significance):
+        is_stationary = True
+    else:
+        is_stationary = False
+    
+    results = pd.Series(adf_test[0:4], index=['ADF Test Statistic','P-Value','# Lags Used','# Observations Used'])
+
+    #Add Critical Values
+    for key,value in adf_test[4].items():
+        results['Critical Value (%s)'%key] = value
+
+    print('Augmented Dickey-Fuller Test Results:')
+    print(results)
+    print('Is the time series stationary? {0}'.format(is_stationary))
+    
+    return adf_test[2]
+    
 def get_all_stationarity(win, can_plot=True):
     for i in range(len(val_ewe)):
         print('---- File: ' + valence_csv[i] + ' ----' )
@@ -141,32 +168,39 @@ def get_all_stationarity(win, can_plot=True):
         get_stationarity(aro_ewe[i], win, 'arousal', can_plot)
         print('')
 
-def plot_ACF_PACF(df):
-    # plot ACF and PACF
+def plot_ACF(df, custom_title=''):
     minus_shift = df - df.shift()
     minus_shift.dropna(inplace=True)
     df = minus_shift
-    acf_plot(df, ax=plt.gca())
-    plt.title('P17')
+    custom_title = re.sub(r'(.txt|.csv)', '', custom_title)
+    plot_acf(df, ax=plt.gca(), lags=range(50), title=custom_title+'Partial Autocorrelation')
     plt.show()
-    plot_acf(df, ax=plt.gca(), lags=range(50))
+    
+def plot_PACF(df, custom_title=''):
+    minus_shift = df - df.shift()
+    minus_shift.dropna(inplace=True)
+    df = minus_shift
+    custom_title = re.sub(r'(.txt|.csv)', '', custom_title)
+    plot_pacf(df, ax=plt.gca(), lags=range(50), title=custom_title+'Partial Autocorrelation')
     plt.show()
-    plot_pacf(df, ax=plt.gca(), lags=range(50))
-    plt.show()
+
+def plot_ACF_PACF(df):
+    plot_ACF(df)
+    plot_PACF(df)
 
 #AR,0,0
 #AR: PACF
 #fit -> theta, alpha
-def apply_ARIMA(data, ylabel, p=2, d=1, q=2):
-    model = ARIMA(data[gs_key], order=(p,d,q))
+def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None):
+    model = ARIMA(data[gs_key], order=(p,d,q), exog=exogenous)
     results = model.fit(disp=-1)    
     
     minus_shift = data - data.shift()
-    minus_shift.dropna(inplace=True)
+    #minus_shift.dropna(inplace=True)
     
-    plt.figure(figsize=(100,5))
-    plt.plot(minus_shift, label = 'minus shift')
-    plt.plot(results.fittedvalues, color='red', label = 'ARIMA')
+    plt.figure(figsize=(15,5))
+    plt.plot(minus_shift, color='lightblue', label = 'minus shift', linewidth=0.1)
+    plt.plot(results.fittedvalues, color='red', label = 'ARIMA', linewidth=0.1)
     plt.legend(loc = 'best')
     plt.title('ARIMA model')
     plt.ylabel(ylabel)
@@ -181,10 +215,33 @@ def apply_ARIMA(data, ylabel, p=2, d=1, q=2):
     plt.plot(data, label='original')
     plt.plot(predictions_ARIMA, label='ARIMA prediction')
     plt.legend(loc = 'best')
-    plt.title('Predictions')
+    plt.title('ARIMA Predictions')
     plt.ylabel(ylabel)
     plt.xlabel(index_name)
     plt.show()
+
+def auto_ARIMA(df, moving_average=0, exogenous=None):
+    lag = get_aug_stationarity(df)
+    plot_PACF(df)
+    print('Applying ARIMA with order=({0},1,0)'.format(lag))
+    apply_ARIMA(df, 'arousal', p=lag, d=1, q=moving_average, exogenous=exogenous)
+    
+def auto_ARIMA_all(moving_average=0):
+    for i in range(len(valence_csv)):
+        print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
+        print('------- valence -------')
+        df_val = val_ewe[i]
+        lag = get_aug_stationarity(df_val)
+        plot_PACF(df_val, custom_title='['+valence_csv[i]+'] Valence ')
+        print('Applying ARIMA with order=({0},1,{1})'.format(lag, moving_average))
+        apply_ARIMA(df_val, 'valence', p=lag, d=1, q=moving_average)
+        print('------- arousal -------')
+        df_aro = aro_ewe[i]
+        lag = get_aug_stationarity(df_aro)
+        plot_PACF(df_aro, custom_title='['+valence_csv[i]+'] Arousal ')
+        print('Applying ARIMA with order=({0},1,{1})'.format(lag, moving_average))
+        apply_ARIMA(df_aro, 'arousal', p=lag, d=1, q=moving_average)
+
 
 #data analysis:
 """ Copy-Paste precompiled functions:
@@ -214,6 +271,24 @@ get_all_stationarity(1000)
 apply_ARIMA(aro_ewe, 0, 'gold standard', 'arousal (ewe)')
 """
 
-df = aro_ewe[1]
-plot_ACF_PACF(df)
-apply_ARIMA(df, 'arousal', p=5, d=1, q=0)
+
+"""
+df1 = df1.combine_first(aro_ewe[1])
+df1 = df1.merge(aro_ewe[1], left_index=True, right_index=True)
+df1.drop(df1.columns.difference(au_cols), 1, inplace=True)
+
+df2 = df2.combine_first(aro_ewe[1])
+df2 = df2.merge(aro_ewe[1], left_index=True, right_index=True)
+df2.drop(df2.columns.difference(au_cols), 1, inplace=True)
+
+df1[df1.isnull()] = df2.values
+print(df1)
+plt.plot(df1[au_cols[0]])
+"""
+plot_data(au[1], 'AU', au_csv[0])
+print(au[1])
+print(len(au[1]))
+#pd.set_option('display.max_rows', df1.shape[0]+1)
+#print(df1)
+auto_ARIMA(aro_ewe[1], exogenous=au[1].values)
+#auto_ARIMA_all()
