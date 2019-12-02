@@ -126,10 +126,10 @@ def get_stationarity(data, win, ylabel, can_plot=True):
 
     # Dickey–Fuller test:
     result = adfuller(data.iloc[:,0].values)
-    print('------- ' + ylabel + ' -------')
+    """print('------- ' + ylabel + ' -------')
     print('ADF Statistic: {}'.format(result[0]))
     print('p-value: {}'.format(result[1]))
-    print('Critical Values:')
+    print('Critical Values:')"""
     for key, value in result[4].items():
         print('\t{}: {}'.format(key, value))
     print('')
@@ -155,9 +155,9 @@ def get_aug_stationarity(data, significance=0.05):
     for key,value in adf_test[4].items():
         results['Critical Value (%s)'%key] = value
 
-    print('Augmented Dickey-Fuller Test Results:')
+    """ print('Augmented Dickey-Fuller Test Results:')
     print(results)
-    print('Is the time series stationary? {0}'.format(is_stationary))
+    print('Is the time series stationary? {0}'.format(is_stationary))"""
     
     return adf_test[2]
     
@@ -191,58 +191,89 @@ def plot_ACF_PACF(df):
 #AR,0,0
 #AR: PACF
 #fit -> theta, alpha
-def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None):
+def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True):
     model = ARIMA(data[gs_key], order=(p,d,q), exog=exogenous)
-    results = model.fit(disp=-1)    
+    #fit esegue il template del modello con p=p' d=d' q=q'
+    results = model.fit(disp=-1)
+    print("Parameters")   
+    aic = results.aic
+    print(results.aic)
+    #print(results.summary())
+    #print(results.mean_squared_error)
     
-    minus_shift = data - data.shift()
-    #minus_shift.dropna(inplace=True)
+    if plot:
+        minus_shift = data - data.shift()
+        #minus_shift.dropna(inplace=True) 
+        plt.figure(figsize=(15,5))
+        plt.plot(minus_shift, color='lightblue', label = 'minus shift', linewidth=0.1)
+        plt.plot(results.fittedvalues, color='red', label = 'ARIMA', linewidth=0.1)
+        plt.legend(loc = 'best')
+        plt.title('ARIMA model')
+        plt.ylabel(ylabel)
+        plt.xlabel(index_name)
+        plt.show()
+        print('End')
+        predictions_ARIMA_diff = pd.Series(results.fittedvalues, copy=True)
+        predictions_ARIMA_diff_cumsum = predictions_ARIMA_diff.cumsum()
+        predictions_ARIMA_log = pd.Series(data[gs_key].iloc[0], index=data.index)
+        predictions_ARIMA_log = predictions_ARIMA_log.add(predictions_ARIMA_diff_cumsum, fill_value=0)
+        predictions_ARIMA = np.exp(predictions_ARIMA_log) - 1
+        plt.plot(data, label='original')
+        plt.plot(predictions_ARIMA, label='ARIMA prediction')
+        plt.legend(loc = 'best')
+        plt.title('ARIMA Predictions')
+        plt.ylabel(ylabel)
+        plt.xlabel(index_name)
+        plt.show()
+    return aic
+   
     
-    plt.figure(figsize=(15,5))
-    plt.plot(minus_shift, color='lightblue', label = 'minus shift', linewidth=0.1)
-    plt.plot(results.fittedvalues, color='red', label = 'ARIMA', linewidth=0.1)
-    plt.legend(loc = 'best')
-    plt.title('ARIMA model')
-    plt.ylabel(ylabel)
-    plt.xlabel(index_name)
-    plt.show()
-    
-    predictions_ARIMA_diff = pd.Series(results.fittedvalues, copy=True)
-    predictions_ARIMA_diff_cumsum = predictions_ARIMA_diff.cumsum()
-    predictions_ARIMA_log = pd.Series(data[gs_key].iloc[0], index=data.index)
-    predictions_ARIMA_log = predictions_ARIMA_log.add(predictions_ARIMA_diff_cumsum, fill_value=0)
-    predictions_ARIMA = np.exp(predictions_ARIMA_log) - 1
-    plt.plot(data, label='original')
-    plt.plot(predictions_ARIMA, label='ARIMA prediction')
-    plt.legend(loc = 'best')
-    plt.title('ARIMA Predictions')
-    plt.ylabel(ylabel)
-    plt.xlabel(index_name)
-    plt.show()
-
-def auto_ARIMA(df, moving_average=0, exogenous=None):
+def auto_ARIMA(df, moving_average=0, exogenous=None, plot=True, p=3):
     lag = get_aug_stationarity(df)
     plot_PACF(df)
-    print('Applying ARIMA with order=({0},1,0)'.format(lag))
-    apply_ARIMA(df, 'arousal', p=lag, d=1, q=moving_average, exogenous=exogenous)
-    
+    #print('Applying ARIMA with order=({0},1,0)'.format(lag))
+    #apply_ARIMA(df, 'arousal', p=lag, d=1, q=moving_average, exogenous=exogenous)
+    print('Applying ARIMA with order=({0},1,0)'.format(p))
+    apply_ARIMA(df, 'valence', p=p, d=1, q=moving_average, exogenous=exogenous)
+#start ARIMA for 3 video of arousal and calculate the mean of AIC.
+#Repeat for p = {3,5,7,9}   
 def auto_ARIMA_all(moving_average=0):
-    for i in range(len(valence_csv)):
-        print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
-        print('------- valence -------')
-        df_val = val_ewe[i]
-        lag = get_aug_stationarity(df_val)
-        plot_PACF(df_val, custom_title='['+valence_csv[i]+'] Valence ')
-        print('Applying ARIMA with order=({0},1,{1})'.format(lag, moving_average))
-        apply_ARIMA(df_val, 'valence', p=lag, d=1, q=moving_average)
-        print('------- arousal -------')
-        df_aro = aro_ewe[i]
-        lag = get_aug_stationarity(df_aro)
-        plot_PACF(df_aro, custom_title='['+valence_csv[i]+'] Arousal ')
-        print('Applying ARIMA with order=({0},1,{1})'.format(lag, moving_average))
-        apply_ARIMA(df_aro, 'arousal', p=lag, d=1, q=moving_average)
-
-
+    #len(valence_csv)
+    aics_mean = []
+    p_array = [3,5,7,9]
+    for x in range(len(p_array)):
+        
+        aics = []
+        for i in range(3):
+            print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
+            print('------- valence -------')
+            df_val = val_ewe[i]
+            lag = get_aug_stationarity(df_val)
+            plot_PACF(df_val, custom_title='['+valence_csv[i]+'] Valence ')
+            print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
+            aic = apply_ARIMA(df_val, 'valence', p=p_array[x], d=1, q=moving_average, exogenous=au[i].values, plot=False)
+            aics.append(aic)
+            """print('------- arousal -------')
+            df_aro = aro_ewe[i]
+            lag = get_aug_stationarity(df_aro)
+            plot_PACF(df_aro, custom_title='['+valence_csv[i]+'] Arousal ')
+            print('Applying ARIMA with order=({0},1,{1})'.format(lag, moving_average))
+            apply_ARIMA(df_aro, 'arousal', p=lag, d=1, q=moving_average)"""
+        
+        print('\n---- Average ----\n\n')
+        print("AIC values")
+        print(aics)
+        
+        print("Average AIC")
+        print(np.mean(a=aics))
+        aics_mean.append(np.mean(a=aics))
+    print(aics_mean)
+    print('Min AICs for p = [3,5,7,9]')
+    print('minimum Avg AIC at p:')
+    print(np.argmin(a=aics_mean))
+    print('Average AIC value:')
+    print(np.amin(a=aics_mean))
+    return np.argmin(a=aics_mean)
 #data analysis:
 """ Copy-Paste precompiled functions:
 
@@ -285,10 +316,15 @@ df1[df1.isnull()] = df2.values
 print(df1)
 plt.plot(df1[au_cols[0]])
 """
-plot_data(au[1], 'AU', au_csv[0])
-print(au[1])
-print(len(au[1]))
+#plot_data(au[1], 'AU', au_csv[0])
+#print(au[1])
+#print(len(au[1]))
 #pd.set_option('display.max_rows', df1.shape[0]+1)
 #print(df1)
-auto_ARIMA(aro_ewe[1], exogenous=au[1].values)
-#auto_ARIMA_all()
+#auto_ARIMA(aro_ewe[1], exogenous=au[1].values)
+best_p = auto_ARIMA_all()
+
+"""show an example of test with ARIMA(best_p,1,0) on video p21"""
+print('ARIMA  with best p on test video P21')
+best_p=3
+auto_ARIMA(val_ewe[4], exogenous=au[4].values, p=best_p)
