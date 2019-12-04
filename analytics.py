@@ -191,14 +191,15 @@ def plot_ACF_PACF(df):
 #AR,0,0
 #AR: PACF
 #fit -> theta, alpha
-def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True):
+def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True, test=False):
     model = ARIMA(data[gs_key], order=(p,d,q), exog=exogenous)
     #fit esegue il template del modello con p=p' d=d' q=q'
     results = model.fit(disp=-1)
     print("Parameters")   
     aic = results.aic
     print(results.aic)
-    #print(results.summary())
+    if test:
+        print(results.summary())
     #print(results.mean_squared_error)
     
     if plot:
@@ -234,7 +235,7 @@ def auto_ARIMA(df, moving_average=0, exogenous=None, plot=True, p=3):
     #print('Applying ARIMA with order=({0},1,0)'.format(lag))
     #apply_ARIMA(df, 'arousal', p=lag, d=1, q=moving_average, exogenous=exogenous)
     print('Applying ARIMA with order=({0},1,0)'.format(p))
-    apply_ARIMA(df, 'valence', p=p, d=1, q=moving_average, exogenous=exogenous)
+    apply_ARIMA(df, 'valence', p=p, d=1, q=moving_average, exogenous=exogenous, test=True)
 #start ARIMA for 3 video of arousal and calculate the mean of AIC.
 #Repeat for p = {3,5,7,9}   
 def auto_ARIMA_all(moving_average=0):
@@ -271,7 +272,7 @@ def auto_ARIMA_all(moving_average=0):
     print('Min AICs for p = [3,5,7,9]')
     print('minimum Avg AIC at p:')
     print(np.argmin(a=aics_mean))
-    print('Average AIC value:')
+    print('minimum AIC value:')
     print(np.amin(a=aics_mean))
     return np.argmin(a=aics_mean)
 #data analysis:
