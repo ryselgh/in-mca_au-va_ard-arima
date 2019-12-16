@@ -50,10 +50,21 @@ for x in valence:
 val_ewe = []
 for csv_file in valence_csv:
     new_val_ewe = pd.read_csv(val_gs_path + csv_file, sep=',')
-    val_ewe.append(new_val_ewe)
+    val_ewe.append(new_val_ewe)    
 for x in val_ewe:
     x.index = x[index_name]
     x.drop([index_name], 1, inplace=True)
+    
+val_train = pd.DataFrame(columns=gs_key)
+for i in range(12):
+    temp_df = pd.DataFrame(val_ewe[i])
+    temp_df.index = temp_df.index + 300*i
+    val_train = val_train.append(temp_df)
+val_valid = pd.DataFrame(columns=gs_key)
+for i in range(12, 14):
+    temp_df = pd.DataFrame(val_ewe[i])
+    temp_df.index = temp_df.index + 300*i
+    val_valid = val_valid.append(temp_df)
 
 arousal = []
 for csv_file in arousal_csv:
@@ -72,6 +83,17 @@ for x in aro_ewe:
     x.index = x[index_name]
     x.drop([index_name], 1, inplace=True)
     
+aro_train = pd.DataFrame(columns=gs_key)
+for i in range(12):
+    temp_df = pd.DataFrame(aro_ewe[i])
+    temp_df.index = temp_df.index + 300*i
+    aro_train = aro_train.append(temp_df)
+aro_valid = pd.DataFrame(columns=gs_key)
+for i in range(12, 14):
+    temp_df = pd.DataFrame(aro_ewe[i])
+    temp_df.index = temp_df.index + 300*i
+    aro_valid = aro_valid.append(temp_df)
+    
 au = []
 for csv_file in au_csv:
     new_au = pd.read_csv(au_path + csv_file, sep=',')
@@ -84,6 +106,17 @@ for x in au:
     scaler.fit(np.array((0, 5)).reshape(-1, 1))
     for col in au_cols:
         scaler.transform(x[col].values.reshape(-1, 1))
+
+au_train = pd.DataFrame(columns=au_cols)
+for i in range(12):
+    temp_au_df = pd.DataFrame(au[i])
+    temp_au_df.index = temp_au_df.index + 300*i
+    au_train = au_train.append(temp_au_df)
+au_valid = pd.DataFrame(columns=au_cols)
+for i in range(12, 14):
+    temp_au_df = pd.DataFrame(au[i])
+    temp_au_df.index = temp_au_df.index + 300*i
+    au_valid = au_valid.append(temp_au_df)
 
 
 #functions:
@@ -323,9 +356,40 @@ plt.plot(df1[au_cols[0]])
 #pd.set_option('display.max_rows', df1.shape[0]+1)
 #print(df1)
 #auto_ARIMA(aro_ewe[1], exogenous=au[1].values)
-best_p = auto_ARIMA_all()
+#best_p = auto_ARIMA_all()
 
-"""show an example of test with ARIMA(best_p,1,0) on video p21"""
+"""show an example of test with ARIMA(best_p,1,0) on video p21
 print('ARIMA  with best p on test video P21')
 best_p=3
 auto_ARIMA(val_ewe[4], exogenous=au[4].values, p=best_p)
+"""
+"""
+plot_data(val_train, 'valence', '12/14 merged EWE for ARIMA training')
+plot_data(val_valid, 'valence', 'Last 2 merged EWE for ARIMA validation')
+plot_data(aro_train, 'arousal', '12/14 merged EWE for ARIMA training')
+plot_data(aro_valid, 'arousal', 'Last 2 merged EWE for ARIMA validation')
+plot_data(aro_train, 'arousal', '12/14 merged EWE for ARIMA training')
+plot_data(aro_valid, 'arousal', 'Last 2 merged EWE for ARIMA validation')
+"""
+
+plt.figure(figsize=(30,5))
+plt.plot(val_train, color='blue', label='training set')
+plt.plot(val_valid, color='orange', label='validation set')
+plt.plot(au_train['AU01_r'], color='red', label='AU01')
+plt.plot(au_valid['AU01_r'], color='red')
+plt.title('Merged EWE for ARIMA training')
+plt.ylabel('valence')
+plt.xlabel('time')
+plt.legend(loc='best')
+plt.show()
+
+plt.figure(figsize=(30,5))
+plt.plot(aro_train, color='blue', label='training set')
+plt.plot(aro_valid, color='orange', label='validation set')
+plt.plot(au_train['AU01_r'], color='red', label='AU01')
+plt.plot(au_valid['AU01_r'], color='red')
+plt.title('Merged EWE for ARIMA training')
+plt.ylabel('arousal')
+plt.xlabel('time')
+plt.legend(loc='best')
+plt.show()
