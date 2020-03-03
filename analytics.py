@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima_model import ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 from sklearn.metrics import mean_squared_error
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
@@ -56,12 +57,14 @@ for x in val_ewe:
     x.drop([index_name], 1, inplace=True)
     
 val_train = pd.DataFrame(columns=gs_key)
-for i in range(12):
+#set number of series to concatenate for training set
+train_range = 2
+for i in range(train_range): #default=12
     temp_df = pd.DataFrame(val_ewe[i])
     temp_df.index = temp_df.index + 300*i
     val_train = val_train.append(temp_df)
 val_valid = pd.DataFrame(columns=gs_key)
-for i in range(12, 14):
+for i in range(train_range, 14):
     temp_df = pd.DataFrame(val_ewe[i])
     temp_df.index = temp_df.index + 300*i
     val_valid = val_valid.append(temp_df)
@@ -84,12 +87,12 @@ for x in aro_ewe:
     x.drop([index_name], 1, inplace=True)
     
 aro_train = pd.DataFrame(columns=gs_key)
-for i in range(12):
+for i in range(train_range):
     temp_df = pd.DataFrame(aro_ewe[i])
     temp_df.index = temp_df.index + 300*i
     aro_train = aro_train.append(temp_df)
 aro_valid = pd.DataFrame(columns=gs_key)
-for i in range(12, 14):
+for i in range(train_range, 14):
     temp_df = pd.DataFrame(aro_ewe[i])
     temp_df.index = temp_df.index + 300*i
     aro_valid = aro_valid.append(temp_df)
@@ -108,12 +111,12 @@ for x in au:
         scaler.transform(x[col].values.reshape(-1, 1))
 
 au_train = pd.DataFrame(columns=au_cols)
-for i in range(12):
+for i in range(train_range):
     temp_au_df = pd.DataFrame(au[i])
     temp_au_df.index = temp_au_df.index + 300*i
     au_train = au_train.append(temp_au_df)
 au_valid = pd.DataFrame(columns=au_cols)
-for i in range(12, 14):
+for i in range(train_range, 14):
     temp_au_df = pd.DataFrame(au[i])
     temp_au_df.index = temp_au_df.index + 300*i
     au_valid = au_valid.append(temp_au_df)
@@ -224,6 +227,7 @@ def plot_ACF_PACF(df):
 #AR,0,0
 #AR: PACF
 #fit -> theta, alpha
+"""We're usign SARIMAX"    
 def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True, test=False):
     model = ARIMA(data[gs_key], order=(p,d,q), exog=exogenous)
     #fit esegue il template del modello con p=p' d=d' q=q'
@@ -282,18 +286,25 @@ def auto_ARIMA_all(moving_average=0):
             print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
             print('------- valence -------')
             df_val = val_ewe[i]
-            lag = get_aug_stationarity(df_val)
+            
+            "Not used"
+            "lag = get_aug_stationarity(df_val)"
             plot_PACF(df_val, custom_title='['+valence_csv[i]+'] Valence ')
             print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
             aic = apply_ARIMA(df_val, 'valence', p=p_array[x], d=1, q=moving_average, exogenous=au[i].values, plot=False)
             aics.append(aic)
-            """print('------- arousal -------')
+            
+            
+            not used
+            print('------- arousal -------')
             df_aro = aro_ewe[i]
             lag = get_aug_stationarity(df_aro)
             plot_PACF(df_aro, custom_title='['+valence_csv[i]+'] Arousal ')
             print('Applying ARIMA with order=({0},1,{1})'.format(lag, moving_average))
-            apply_ARIMA(df_aro, 'arousal', p=lag, d=1, q=moving_average)"""
-        
+            apply_ARIMA(df_aro, 'arousal', p=lag, d=1, q=moving_average)
+            
+            
+            
         print('\n---- Average ----\n\n')
         print("AIC values")
         print(aics)
@@ -307,7 +318,34 @@ def auto_ARIMA_all(moving_average=0):
     print(np.argmin(a=aics_mean))
     print('minimum AIC value:')
     print(np.amin(a=aics_mean))
-    return np.argmin(a=aics_mean)
+    return np.argmin(a=aics_mean)"""
+
+def apply_SARIMAX(data, ylabel, p, d=1, q=0, exogenous=None, season_period=300, plot=True, test=False):
+   
+    print('Applying SARIMAX with order=({0},1,{1}), season period: {2}'.format(p, q, season_period))   
+    model = SARIMAX(data[gs_key], exog=exogenous, order=(p,d,q), seasonal_order=(1,1,0,season_period))
+    #fit esegue il template del modello con p=p' d=d' q=q'
+    results = model.fit(disp=-1)
+    print("Parameters")   
+    aic = results.aic
+    print(results.aic)
+    print(results.summary())
+    return aic
+    
+def auto_SARIMAX_train(moving_average=0, season_period=300):
+    
+     p_array = [3,5,7,9]
+     aics = []
+     print('Start to predict series')
+     for x in range(len(p_array)):
+         print('Predictions with p={0}'.format(p_array[x]))
+         aic = apply_SARIMAX(aro_train, 'arousal', p=p_array[x], d=1, q=moving_average, exogenous=au_train.values, season_period=season_period, plot=False)
+         aics.append(aic)
+     print('AICs for p = [3,5,7,9]')    
+     print(aics)
+     print('minimum Avg AIC at p:')
+     print(p_array[np.argmin(a=aics)])
+     return p_array[np.argmin(a=aics)]
 #data analysis:
 """ Copy-Paste precompiled functions:
 
@@ -374,7 +412,7 @@ plot_data(aro_valid, 'arousal', 'Last 2 merged EWE for ARIMA validation')
 
 plt.figure(figsize=(30,5))
 plt.plot(val_train, color='blue', label='training set')
-plt.plot(val_valid, color='orange', label='validation set')
+#plt.plot(val_valid, color='orange', label='validation set')
 plt.plot(au_train['AU01_r'], color='red', label='AU01')
 plt.plot(au_valid['AU01_r'], color='red')
 plt.title('Merged EWE for ARIMA training')
@@ -393,3 +431,7 @@ plt.ylabel('arousal')
 plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
+
+#season_period = 300
+best_p = auto_SARIMAX_train()
+print("End")
