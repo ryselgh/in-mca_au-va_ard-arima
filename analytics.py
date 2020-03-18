@@ -231,8 +231,8 @@ def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True, test=Fal
     print("Parameters")   
     aic = results.aic
     print(results.aic)
-    if test:
-        print(results.summary())
+    #if test:
+    print(results.summary())
     #print(results.mean_squared_error)
     
     if plot:
@@ -246,7 +246,6 @@ def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True, test=Fal
         plt.ylabel(ylabel)
         plt.xlabel(index_name)
         plt.show()
-        print('End')
         predictions_ARIMA_diff = pd.Series(results.fittedvalues, copy=True)
         predictions_ARIMA_diff_cumsum = predictions_ARIMA_diff.cumsum()
         predictions_ARIMA_log = pd.Series(data[gs_key].iloc[0], index=data.index)
@@ -269,45 +268,35 @@ def auto_ARIMA(df, moving_average=0, exogenous=None, plot=True, p=3):
     #apply_ARIMA(df, 'arousal', p=lag, d=1, q=moving_average, exogenous=exogenous)
     print('Applying ARIMA with order=({0},1,0)'.format(p))
     apply_ARIMA(df, 'valence', p=p, d=1, q=moving_average, exogenous=exogenous, test=True)
-#start ARIMA for 3 video of arousal and calculate the mean of AIC.
-#Repeat for p = {3,5,7,9}   
-def auto_ARIMA_all(moving_average=0):
+
+
+
+def auto_ARIMA_train(data, ylabel, moving_average=0):
     #len(valence_csv)
     aics_mean = []
     p_array = [3,5,7,9]
-    for x in range(len(p_array)):
+    aics = []
+    for x in range(len(p_array)):    
         
-        aics = []
-        for i in range(3):
-            print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
-            print('------- valence -------')
-            df_val = val_ewe[i]
-            lag = get_aug_stationarity(df_val)
-            plot_PACF(df_val, custom_title='['+valence_csv[i]+'] Valence ')
-            print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
-            aic = apply_ARIMA(df_val, 'valence', p=p_array[x], d=1, q=moving_average, exogenous=au[i].values, plot=False)
-            aics.append(aic)
-            """print('------- arousal -------')
-            df_aro = aro_ewe[i]
-            lag = get_aug_stationarity(df_aro)
-            plot_PACF(df_aro, custom_title='['+valence_csv[i]+'] Arousal ')
-            print('Applying ARIMA with order=({0},1,{1})'.format(lag, moving_average))
-            apply_ARIMA(df_aro, 'arousal', p=lag, d=1, q=moving_average)"""
-        
-        print('\n---- Average ----\n\n')
-        print("AIC values")
-        print(aics)
-        
-        print("Average AIC")
-        print(np.mean(a=aics))
-        aics_mean.append(np.mean(a=aics))
-    print(aics_mean)
+       #print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
+        print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
+        aic = apply_ARIMA(data, ylabel, p=p_array[x], d=1, q=moving_average, exogenous=au_train.values, plot=False)
+        aics.append(aic) 
+        print("AIC value")
+        print(aic)
+
+
+    print("AICS values")
+    print(aics)
     print('Min AICs for p = [3,5,7,9]')
-    print('minimum Avg AIC at p:')
-    print(np.argmin(a=aics_mean))
-    print('minimum AIC value:')
-    print(np.amin(a=aics_mean))
-    return np.argmin(a=aics_mean)
+    print('Minimum AIC value:')
+    print(np.argmin(a=aics))
+    print("best p:")
+    print(np.amin(a=aics))
+    return np.argmin(a=aics)
+
+def auto_ARIMA_test(data, ylabel,  bestp, moving_average=0):
+    aic = apply_ARIMA(data, 'arousal', p=bestp, d=1, q=moving_average, exogenous=au_valid.values, plot=True)
 #data analysis:
 """ Copy-Paste precompiled functions:
 
@@ -356,13 +345,31 @@ plt.plot(df1[au_cols[0]])
 #pd.set_option('display.max_rows', df1.shape[0]+1)
 #print(df1)
 #auto_ARIMA(aro_ewe[1], exogenous=au[1].values)
-#best_p = auto_ARIMA_all()
 
-"""show an example of test with ARIMA(best_p,1,0) on video p21
-print('ARIMA  with best p on test video P21')
-best_p=3
-auto_ARIMA(val_ewe[4], exogenous=au[4].values, p=best_p)
+
 """
+print('------- arousal -------');
+#ARIMA on train set concat list (evaluate estimated weight on this part)
+best_p = auto_ARIMA_train(aro_train, "arousal")
+#validation
+auto_ARIMA_test(val_valid, "arousal",  best_p)
+
+"""
+print('------- valence -------');
+#ARIMA on train set concat list
+best_p = auto_ARIMA_train(val_train, "valence")
+#validation
+auto_ARIMA_test(val_valid, "valence", best_p)
+
+
+
+#Example 1 show an example of test with ARIMA(best_p,1,0) on video p21
+#print('ARIMA  with best p on test video P21')
+#best_p=3
+#auto_ARIMA(val_ewe[4], exogenous=au[4].values, p=best_p)
+
+
+
 """
 plot_data(val_train, 'valence', '12/14 merged EWE for ARIMA training')
 plot_data(val_valid, 'valence', 'Last 2 merged EWE for ARIMA validation')
