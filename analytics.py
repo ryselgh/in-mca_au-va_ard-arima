@@ -224,7 +224,7 @@ def plot_ACF_PACF(df):
 #AR,0,0
 #AR: PACF
 #fit -> theta, alpha
-def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True, test=False):
+def apply_ARIMA(data, ylabel, p=2, d=1, q=0, exogenous=None, plot=True, test=False):
     model = ARIMA(data[gs_key], order=(p,d,q), exog=exogenous)
     #fit esegue il template del modello con p=p' d=d' q=q'
     results = model.fit(disp=-1)
@@ -271,32 +271,62 @@ def auto_ARIMA(df, moving_average=0, exogenous=None, plot=True, p=3):
 
 
 
-def auto_ARIMA_train(data, ylabel, moving_average=0):
+def auto_ARIMA_train(train_data, ylabel, moving_average=0):
     #len(valence_csv)
     aics_mean = []
     p_array = [3,5,7,9]
     aics = []
+    
     for x in range(len(p_array)):    
         
        #print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
         print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
-        aic = apply_ARIMA(data, ylabel, p=p_array[x], d=1, q=moving_average, exogenous=au_train.values, plot=False)
+        aic = apply_ARIMA(train_data, ylabel, p=p_array[x], d=1, q=moving_average, exogenous=au_train.values, plot=False)
         aics.append(aic) 
         print("AIC value")
         print(aic)
-
 
     print("AICS values")
     print(aics)
     print('Min AICs for p = [3,5,7,9]')
     print('Minimum AIC value:')
-    print(np.argmin(a=aics))
-    print("best p:")
     print(np.amin(a=aics))
+    print("best p:")
+    print(np.argmin(a=aics))
     return np.argmin(a=aics)
 
-def auto_ARIMA_test(data, ylabel,  bestp, moving_average=0):
-    aic = apply_ARIMA(data, 'arousal', p=bestp, d=1, q=moving_average, exogenous=au_valid.values, plot=True)
+def auto_ARIMA_test(train_data, val_data, ylabel,  bestp, moving_average=0):
+
+    model = ARIMA(train_data, order=(bestp, 1, moving_average), exog=au_train.values)
+    model_fit = model.fit(disp=-1)
+    
+    forecast = model_fit.forecast(steps=len(val_data), exog=au_train.value)[0]
+    
+    
+    #minus_shift = val_data - val_data.shift()
+    #minus_shift.dropna(inplace=True) 
+    #plt.figure(figsize=(15,5))
+    #plt.plot(minus_shift, color='lightblue', label = 'minus shift', linewidth=0.1)
+    #plt.plot(forecast, color='red', label = 'ARIMA', linewidth=0.1)
+    #plt.legend(loc = 'best')
+    #plt.title('ARIMA model')
+    #plt.ylabel(ylabel)
+    #plt.xlabel(index_name)
+    #plt.show()
+    #predictions_ARIMA_diff = pd.Series(forecast, copy=True)
+   # predictions_ARIMA_diff_cumsum = predictions_ARIMA_diff.cumsum()
+   # predictions_ARIMA_log = pd.Series(val_data.iloc[0], index=val_data.index)
+    #predictions_ARIMA_log = predictions_ARIMA_log.add(predictions_ARIMA_diff_cumsum, fill_value=0)
+    #predictions_ARIMA = np.exp(predictions_ARIMA_log) - 1
+    #plt.plot(val_data, label='original')
+   # plt.plot(predictions_ARIMA, label='ARIMA prediction')
+    #plt.legend(loc = 'best')
+    #plt.title('ARIMA Predictions')
+    #plt.ylabel(ylabel)
+    #plt.xlabel(index_name)
+    #plt.show()
+    
+         
 #data analysis:
 """ Copy-Paste precompiled functions:
 
@@ -347,19 +377,7 @@ plt.plot(df1[au_cols[0]])
 #auto_ARIMA(aro_ewe[1], exogenous=au[1].values)
 
 
-"""
-print('------- arousal -------');
-#ARIMA on train set concat list (evaluate estimated weight on this part)
-best_p = auto_ARIMA_train(aro_train, "arousal")
-#validation
-auto_ARIMA_test(val_valid, "arousal",  best_p)
 
-"""
-print('------- valence -------');
-#ARIMA on train set concat list
-best_p = auto_ARIMA_train(val_train, "valence")
-#validation
-auto_ARIMA_test(val_valid, "valence", best_p)
 
 
 
@@ -400,3 +418,17 @@ plt.ylabel('arousal')
 plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
+
+"""
+print('------- arousal -------');
+#ARIMA on train set concat list (evaluate estimated weight on this part)
+best_p = auto_ARIMA_train(aro_train, "arousal")
+#validation
+auto_ARIMA_test(aro_train, val_valid, "arousal",  best_p)
+
+"""
+print('------- valence -------');
+#ARIMA on train set concat list
+best_p = auto_ARIMA_train(val_train, "valence")
+#validation
+auto_ARIMA_test(val_train,val_valid, "valence", best_p)
