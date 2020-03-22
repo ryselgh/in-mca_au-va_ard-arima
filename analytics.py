@@ -112,6 +112,7 @@ for i in range(12):
     temp_au_df = pd.DataFrame(au[i])
     temp_au_df.index = temp_au_df.index + 300*i
     au_train = au_train.append(temp_au_df)
+    
 au_valid = pd.DataFrame(columns=au_cols)
 for i in range(12, 14):
     temp_au_df = pd.DataFrame(au[i])
@@ -396,7 +397,7 @@ plot_data(aro_valid, 'arousal', 'Last 2 merged EWE for ARIMA validation')
 plot_data(aro_train, 'arousal', '12/14 merged EWE for ARIMA training')
 plot_data(aro_valid, 'arousal', 'Last 2 merged EWE for ARIMA validation')
 """
-
+"""
 plt.figure(figsize=(30,5))
 plt.plot(val_train, color='blue', label='training set')
 plt.plot(val_valid, color='orange', label='validation set')
@@ -418,7 +419,7 @@ plt.ylabel('arousal')
 plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
-
+"""
 """
 print('------- arousal -------');
 #ARIMA on train set concat list (evaluate estimated weight on this part)
@@ -429,6 +430,38 @@ auto_ARIMA_test(aro_train, val_valid, "arousal",  best_p)
 """
 print('------- valence -------');
 #ARIMA on train set concat list
-best_p = auto_ARIMA_train(val_train, "valence")
+#best_p = auto_ARIMA_train(val_train, "valence")
 #validation
-auto_ARIMA_test(val_train,val_valid, "valence", best_p)
+#best_p = 3
+#auto_ARIMA_test(val_train,val_valid, "valence", best_p)
+
+
+
+
+
+alpha = 0.05 # 95% confidenza
+order = (3, 1, 0)
+
+# Build Model
+model = ARIMA(val_train, order=order, exog=au_train.values)
+fitted = model.fit(disp=-1)
+print(fitted.summary())
+
+# Forecast
+fc, se, conf = fitted.forecast(au_valid.shape[0], alpha=alpha, exog=au_valid.values)
+
+# Make as pandas series
+fc_series = pd.Series(fc, index=val_valid.index)
+lower_series = pd.Series(conf[:, 0], index=val_valid.index)
+upper_series = pd.Series(conf[:, 1], index=val_valid.index)
+
+# Plot
+plt.figure(figsize=(12,5), dpi=100)
+plt.plot(val_train, label='training')
+plt.plot(val_valid, label='actual')
+plt.plot(fc_series, label='forecast')
+plt.fill_between(lower_series.index, lower_series, upper_series, 
+                 color='k', alpha=.15)
+plt.title('Forecast vs Actuals')
+plt.legend(loc='upper left', fontsize=8)
+plt.show()
