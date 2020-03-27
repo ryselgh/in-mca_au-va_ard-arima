@@ -299,9 +299,9 @@ def auto_ARIMA_train(train_data, ylabel, moving_average=0):
 def auto_ARIMA_test(train_data, val_data, ylabel,  bestp, moving_average=0):
 
     model = ARIMA(train_data, order=(bestp, 1, moving_average), exog=au_train.values)
-    model_fit = model.fit(disp=-1)
+    fitted = model.fit(disp=-1)
     
-    forecast = model_fit.forecast(steps=len(val_data), exog=au_train.value)[0]
+    forecast = fitted.forecast(steps=len(val_data), exog=au_train.value)[0]
     
     
     #minus_shift = val_data - val_data.shift()
@@ -408,7 +408,7 @@ plt.ylabel('valence')
 plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
-
+"""
 plt.figure(figsize=(30,5))
 plt.plot(aro_train, color='blue', label='training set')
 plt.plot(aro_valid, color='orange', label='validation set')
@@ -419,7 +419,7 @@ plt.ylabel('arousal')
 plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
-"""
+
 """
 print('------- arousal -------');
 #ARIMA on train set concat list (evaluate estimated weight on this part)
@@ -436,22 +436,36 @@ print('------- valence -------');
 #auto_ARIMA_test(val_train,val_valid, "valence", best_p)
 
 
-
-
-
 alpha = 0.05 # 95% confidenza
 order = (3, 1, 0)
 
 # Build Model
-model = ARIMA(val_train, order=order, exog=au_train.values)
-fitted = model.fit(disp=-1)
-print(fitted.summary())
+#model = ARIMA(val_train, order=order, exog=au_train.values)
+#fitted = model.fit(disp=-1)
+#print(fitted.summary())
 
 # Forecast
-fc, se, conf = fitted.forecast(au_valid.shape[0], alpha=alpha, exog=au_valid.values)
+#fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, alpha=alpha)
 
+fc_series = []
+inc_val_train = val_train
+inc_au_train = au_train
+dec_au_valid = au_valid
+#primo step, farlo funzionare senza action unit
+#secondo step, usare le action unit in modo incrementale, in ARIMA passare inc_au_train
+#e in forecast passare exog= au_valid - au_valid dei valori già predetti
+
+for i in range(au_valid.shape[0]):
+    model = ARIMA(inc_val_train, order=order, exog=inc_au_train.values)
+    fitted = model.fit(disp=-1)
+    fc, se, conf = fitted.forecast(1, exog=dec_au_valid.values alpha=alpha)
+    fc_series.append(fc)
+    #this generates errors
+    inc_val_train.append(fc)    
+
+    
 # Make as pandas series
-fc_series = pd.Series(fc, index=val_valid.index)
+fc_series = pd.Series(fc_series, index=val_valid.index)
 lower_series = pd.Series(conf[:, 0], index=val_valid.index)
 upper_series = pd.Series(conf[:, 1], index=val_valid.index)
 
@@ -465,3 +479,4 @@ plt.fill_between(lower_series.index, lower_series, upper_series,
 plt.title('Forecast vs Actuals')
 plt.legend(loc='upper left', fontsize=8)
 plt.show()
+
