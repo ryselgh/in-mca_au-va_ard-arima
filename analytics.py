@@ -141,6 +141,9 @@ def plot_ewe():
     for i in range(len(arousal)):
         plot_data(arousal[i], 'arousal', arousal_csv[i] + ': Evaluator Weighted Estimator', show_ewe=True, va_ewe=aro_ewe[i])
 
+
+""" This part is for Stationarity and PACF (to get a reasonable range of values for p param in ARIMA """
+# Dickey–Fuller test for stationarity of a time series
 def get_stationarity(data, win, ylabel, can_plot=True):
     
     # rolling statistics
@@ -189,11 +192,11 @@ def get_aug_stationarity(data, significance=0.05):
     for key,value in adf_test[4].items():
         results['Critical Value (%s)'%key] = value
 
-    """ print('Augmented Dickey-Fuller Test Results:')
+    print('Augmented Dickey-Fuller Test Results:')
     print(results)
-    print('Is the time series stationary? {0}'.format(is_stationary))"""
+    print('Is the time series stationary? {0}'.format(is_stationary))
     
-    return adf_test[2]
+    #return adf_test[2]
     
 def get_all_stationarity(win, can_plot=True):
     for i in range(len(val_ewe)):
@@ -222,21 +225,33 @@ def plot_ACF_PACF(df):
     plot_ACF(df)
     plot_PACF(df)
 
+""" end stationarity, PACF"""
+
+
+
+
+
+
+
+""" ARIMA MODEL application """  
+
 #AR,0,0
 #AR: PACF
 #fit -> theta, alpha
 def apply_ARIMA(data, ylabel, p=2, d=1, q=0, exogenous=None, plot=True, test=False):
+    
     model = ARIMA(data[gs_key], order=(p,d,q), exog=exogenous)
-    #fit esegue il template del modello con p=p' d=d' q=q'
     results = model.fit(disp=-1)
+    
     print("Parameters")   
     aic = results.aic
     print(results.aic)
-    #if test:
+  
     print(results.summary())
-    #print(results.mean_squared_error)
+    #plus extract coefficents in array
     
     if plot:
+        """plotting residuals"""
         minus_shift = data - data.shift()
         #minus_shift.dropna(inplace=True) 
         plt.figure(figsize=(15,5))
@@ -261,8 +276,9 @@ def apply_ARIMA(data, ylabel, p=2, d=1, q=0, exogenous=None, plot=True, test=Fal
         plt.show()
     return aic
    
-    
+""" redefine"""    
 def auto_ARIMA(df, moving_average=0, exogenous=None, plot=True, p=3):
+   
     lag = get_aug_stationarity(df)
     plot_PACF(df)
     #print('Applying ARIMA with order=({0},1,0)'.format(lag))
@@ -271,63 +287,53 @@ def auto_ARIMA(df, moving_average=0, exogenous=None, plot=True, p=3):
     apply_ARIMA(df, 'valence', p=p, d=1, q=moving_average, exogenous=exogenous, test=True)
 
 
-
+"return p and estimated coefficents for the ARIMA MODEL in the train"
 def auto_ARIMA_train(train_data, ylabel, moving_average=0):
-    #len(valence_csv)
-    aics_mean = []
-    p_array = [3,5,7,9]
-    aics = []
+  
     
+    #reasonable values of p obtained trying PACF on training series
+    p_array = [3,4,5,6,7,8,9]
+    aics = []
     for x in range(len(p_array)):    
-        
-       #print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
+
         print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
-        aic = apply_ARIMA(train_data, ylabel, p=p_array[x], d=1, q=moving_average, exogenous=au_train.values, plot=False)
+        aic = apply_ARIMA(train_data, ylabel, p=p_array[x], d=1, 
+                          q=moving_average, exogenous=au_train.values, plot=False)
         aics.append(aic) 
-        print("AIC value")
+        print('AIC value')
         print(aic)
 
+    #Use Akaike Information Criterion (min AIC) to find the best model among the estimated
     print("AICS values")
     print(aics)
-    print('Min AICs for p = [3,5,7,9]')
+    print('Min AICs for p = {0}'.format(p_array))
+    print(str(p_array))
     print('Minimum AIC value:')
     print(np.amin(a=aics))
-    print("best p:")
+    print('best p:')
     print(np.argmin(a=aics))
     return np.argmin(a=aics)
 
+"forecast test series values by using coeff estimated with best p ARIMA"
 def auto_ARIMA_test(train_data, val_data, ylabel,  bestp, moving_average=0):
 
-    model = ARIMA(train_data, order=(bestp, 1, moving_average), exog=au_train.values)
-    fitted = model.fit(disp=-1)
+    print("Validation")
+    #plot of the forecast
+    #plot of the residuals
     
-    forecast = fitted.forecast(steps=len(val_data), exog=au_train.value)[0]
-    
-    
-    #minus_shift = val_data - val_data.shift()
-    #minus_shift.dropna(inplace=True) 
-    #plt.figure(figsize=(15,5))
-    #plt.plot(minus_shift, color='lightblue', label = 'minus shift', linewidth=0.1)
-    #plt.plot(forecast, color='red', label = 'ARIMA', linewidth=0.1)
-    #plt.legend(loc = 'best')
-    #plt.title('ARIMA model')
-    #plt.ylabel(ylabel)
-    #plt.xlabel(index_name)
-    #plt.show()
-    #predictions_ARIMA_diff = pd.Series(forecast, copy=True)
-   # predictions_ARIMA_diff_cumsum = predictions_ARIMA_diff.cumsum()
-   # predictions_ARIMA_log = pd.Series(val_data.iloc[0], index=val_data.index)
-    #predictions_ARIMA_log = predictions_ARIMA_log.add(predictions_ARIMA_diff_cumsum, fill_value=0)
-    #predictions_ARIMA = np.exp(predictions_ARIMA_log) - 1
-    #plt.plot(val_data, label='original')
-   # plt.plot(predictions_ARIMA, label='ARIMA prediction')
-    #plt.legend(loc = 'best')
-    #plt.title('ARIMA Predictions')
-    #plt.ylabel(ylabel)
-    #plt.xlabel(index_name)
-    #plt.show()
-    
+""" end ARIMA MODEL """
+
+""" ACTION UNIT and AROUSAL/VALENCE correlation """
+#define a function where to plot data to extract
+  
          
+
+
+
+
+
+
+
 #data analysis:
 """ Copy-Paste precompiled functions:
 
@@ -378,17 +384,6 @@ plt.plot(df1[au_cols[0]])
 #auto_ARIMA(aro_ewe[1], exogenous=au[1].values)
 
 
-
-
-
-
-#Example 1 show an example of test with ARIMA(best_p,1,0) on video p21
-#print('ARIMA  with best p on test video P21')
-#best_p=3
-#auto_ARIMA(val_ewe[4], exogenous=au[4].values, p=best_p)
-
-
-
 """
 plot_data(val_train, 'valence', '12/14 merged EWE for ARIMA training')
 plot_data(val_valid, 'valence', 'Last 2 merged EWE for ARIMA validation')
@@ -409,6 +404,9 @@ plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
 """
+
+
+""" PLOT OF THE CONCATENATED SERIES (Blue TRAIN, Orange VALIDATION)
 plt.figure(figsize=(30,5))
 plt.plot(aro_train, color='blue', label='training set')
 plt.plot(aro_valid, color='orange', label='validation set')
@@ -419,6 +417,7 @@ plt.ylabel('arousal')
 plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
+"""
 
 """
 print('------- arousal -------');
@@ -428,23 +427,53 @@ best_p = auto_ARIMA_train(aro_train, "arousal")
 auto_ARIMA_test(aro_train, val_valid, "arousal",  best_p)
 
 """
+
+
 print('------- valence -------');
+
 #ARIMA on train set concat list
-#best_p = auto_ARIMA_train(val_train, "valence")
+best_p = auto_ARIMA_train(val_train, 'valence)
 #validation
-#best_p = 3
+
+
+""" run with found results  """
+
+alpha = 0.05 # 95% confidenza
+
+#bestp=6 estimated with AIC and PACF, d=1 for approx stationarity, q=0 as specific of the assignment
+order = (6, 1, 0)
+
+#VALENCE
+# Build Model
+model = ARIMA(val_train, order=order, exog=au_train.values)
+fitted = model.fit(disp=-1)
+print(fitted.summary())
+
+""" """
+
+
+#extract coefficents
+#print(fitted.arparams)
+#print(fitted.params)
+coeff = fitted.params
+action_units_coeff = coeff[1:18]
+action_units_coeff.index = au_cols
+ar_coeff = coeff[18:]
+
+print('Lags coefficent values:\n{0}'.format(ar_coeff))
+print('Action units coefficent values:\n{0}'.format(action_units_coeff))
+
+
+""" implement here the forecast, without applying ARIMA, do it by hand with the estimated weights 
+ https://machinelearningmastery.com/make-manual-predictions-arima-models-python/ """
 #auto_ARIMA_test(val_train,val_valid, "valence", best_p)
 
 
-alpha = 0.05 # 95% confidenza
-order = (3, 1, 0)
 
-# Build Model
-#model = ARIMA(val_train, order=order, exog=au_train.values)
-#fitted = model.fit(disp=-1)
-#print(fitted.summary())
+""" 
 
-# Forecast
+Not Needed
+
 #fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, alpha=alpha)
 
 fc_series = []
@@ -452,8 +481,6 @@ inc_val_train = val_train
 inc_au_train = au_train
 dec_au_valid = au_valid
 #primo step, farlo funzionare senza action unit
-#secondo step, usare le action unit in modo incrementale, in ARIMA passare inc_au_train
-#e in forecast passare exog= au_valid - au_valid dei valori già predetti
 
 for i in range(au_valid.shape[0]):
     model = ARIMA(inc_val_train, order=order, exog=inc_au_train.values)
@@ -479,4 +506,4 @@ plt.fill_between(lower_series.index, lower_series, upper_series,
 plt.title('Forecast vs Actuals')
 plt.legend(loc='upper left', fontsize=8)
 plt.show()
-
+"""
