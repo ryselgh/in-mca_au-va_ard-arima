@@ -465,7 +465,7 @@ print('Action units coefficent values:\n{0}'.format(action_units_coeff))
 
 
 """ implement here the forecast, without applying ARIMA, do it by hand with the estimated weights 
- https://machinelearningmastery.com/make-manual-predictions-arima-models-python/ """
+ """
 #auto_ARIMA_test(val_train,val_valid, "valence", best_p)
 
 
