@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima_model import ARIMA
+from sklearn.linear_model import ARDRegression, LinearRegression
 from sklearn.metrics import mean_squared_error
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
@@ -432,7 +433,7 @@ auto_ARIMA_test(aro_train, val_valid, "arousal",  best_p)
 print('------- valence -------');
 
 #ARIMA on train set concat list
-best_p = auto_ARIMA_train(val_train, 'valence)
+#best_p = auto_ARIMA_train(val_train, 'valence')
 #validation
 
 
@@ -456,17 +457,51 @@ print(fitted.summary())
 #print(fitted.arparams)
 #print(fitted.params)
 coeff = fitted.params
-action_units_coeff = coeff[1:18]
-action_units_coeff.index = au_cols
+au_coeff = coeff[1:18]
+au_coeff.index = au_cols
 ar_coeff = coeff[18:]
 
+#show sorted action units weights
+au_sort= au_coeff.abs().sort_values(ascending=False)
+au_sort.index
+au_coeff_sort = au_coeff[au_sort.index]
+
+
 print('Lags coefficent values:\n{0}'.format(ar_coeff))
-print('Action units coefficent values:\n{0}'.format(action_units_coeff))
+print('Action units coefficent values:\n{0}'.format(au_coeff_sort))
+
+"""
+plt.figure(figsize=(6, 5))
+plt.title("Weights of the model")
+plt.plot(au_coeff.values, color='darkblue', linestyle='-', linewidth=2,
+         label="ARIMA AUs estimate")
+plt.plot(ar_coeff.values, color='orange', linestyle='-', linewidth=2,
+         label="ARIMA Lags estimate")
+#plt.plot(ols.coef_, color='yellowgreen', linestyle=':', linewidth=2,)
+plt.xlabel("Features + Lags")
+plt.ylabel("Values of the weights")
+plt.legend(loc=2)
+"""
+
+#plot weights bar in log scale
+cols_plot = ['1', '2', '3', '4', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6']
+#exclude const coeff[0]
+coeff_plot = coeff[1:]
+coeff_plot.index = cols_plot
+plt.figure(figsize=(7,5))
+plt.title("ARIMA model weights - Log scale")
+plt.bar(coeff_plot.index,coeff_plot.values,log=True)
+cols_plot = ['1', '2', '3', '4', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
+au_coeff.index = cols_plot
+plt.figure(figsize=(7,5))
+plt.title("Action unit weights")
+plt.bar(au_coeff.index,au_coeff.values)
+
 
 
 """ implement here the forecast, without applying ARIMA, do it by hand with the estimated weights 
  """
-#auto_ARIMA_test(val_train,val_valid, "valence", best_p)
+#auto_ARIMA_test(val_train,val_valid, "valencle", best_p)
 
 
 
