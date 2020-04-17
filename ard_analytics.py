@@ -56,7 +56,29 @@ for i in range(12):
     temp_df.index = temp_df.index + 300*i
     val_train = val_train.append(temp_df)
 
+arousal = []
+for csv_file in arousal_csv:
+    new_arousal = pd.read_csv(arousal_path + csv_file, sep=';')
+    new_arousal.columns = new_arousal.columns.str.replace(' ', '')
+    arousal.append(new_arousal)
+for x in arousal:
+    x.index = x[index_name]
+    x.drop(x.columns.difference(va_cols), 1, inplace=True)
     
+aro_ewe = []
+for csv_file in arousal_csv:
+    new_aro_ewe = pd.read_csv(aro_gs_path + csv_file, sep=',')
+    aro_ewe.append(new_aro_ewe)
+for x in aro_ewe:
+    x.index = x[index_name]
+    x.drop([index_name], 1, inplace=True)
+    
+aro_train = pd.DataFrame(columns=gs_key)
+for i in range(12):
+    temp_df = pd.DataFrame(aro_ewe[i])
+    temp_df.index = temp_df.index + 300*i
+    aro_train = aro_train.append(temp_df)
+
 au = []
 for csv_file in au_csv:
     new_au = pd.read_csv(au_path + csv_file, sep=',')
@@ -112,7 +134,7 @@ n_features = 17
 #one video 7501
 #try with 1000/3000/5000/7501 
 n_samples = au_train.shape[0]
-#n_samples = 5000
+#n_samples = 1000
 
 # Create weights with a precision lambda_ of 4.
 lambda_ = 4.
@@ -133,8 +155,8 @@ noise = stats.norm.rvs(loc=0, scale=1. / np.sqrt(alpha_), size=n_samples)
 X = au_train.values[0:n_samples,:]
 # Create the target 
 #y = np.dot(X, w) + noise
-y = val_train.values[0:n_samples]
-
+#y = val_train.values[0:n_samples]
+y= aro_train.values[0:n_samples]
 
 
 # Fit the ARD Regression
@@ -146,14 +168,15 @@ print('fitted')
 
 
 #show sorted action units weights
-au_cols_plot = ['1', '2', '3', '4', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
+
 au_coeff = pd.Series(ARD_coef)
-au_coeff.index = au_cols_plot
+au_coeff.index = au_cols
 au_sort= au_coeff.abs().sort_values(ascending=False)
 au_sort.index
 au_sort = au_coeff[au_sort.index]
 
-
+au_cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
+au_coeff.index = au_cols_plot
 print(au_sort)
 
 
@@ -178,7 +201,7 @@ plt.title("Histogram of the weights")
 plt.hist(clf.coef_, bins=n_features, color='navy', log=True)
 #plt.scatter(clf.coef_[relevant_features], np.full(10, 5.),
 #            color='gold', marker='o', label="Relevant features")
-plt.ylabel("# Features")
+plt.ylabel("#Features")
 plt.xlabel("Values of the weights")
 plt.legend(loc=1)
 
@@ -192,7 +215,8 @@ au_coeff.index = au_cols_plot
 plt.figure(figsize=(6,5))
 plt.title("Action unit weights")
 plt.bar(au_coeff.index,au_coeff.values)
-
+plt.xlabel("Action units")
+plt.ylabel("Values of the weights")
 
 
 """
