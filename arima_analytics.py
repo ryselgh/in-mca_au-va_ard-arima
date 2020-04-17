@@ -246,9 +246,9 @@ def apply_ARIMA(data, ylabel, p=2, d=1, q=0, exogenous=None, plot=True, test=Fal
     
     print("Parameters")   
     aic = results.aic
-    print(results.aic)
+    #print(results.aic)
   
-    print(results.summary())
+   # print(results.summary())
     #plus extract coefficents in array
     
     if plot:
@@ -294,26 +294,29 @@ def auto_ARIMA_train(train_data, ylabel, moving_average=0):
     
     #reasonable values of p obtained trying PACF on training series
     p_array = [3,4,5,6,7,8,9]
+    
     aics = []
+    aic_min = float("inf")
     for x in range(len(p_array)):    
-
+            
         print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
         aic = apply_ARIMA(train_data, ylabel, p=p_array[x], d=1, 
                           q=moving_average, exogenous=au_train.values, plot=False)
         aics.append(aic) 
         print('AIC value')
         print(aic)
-
+        if aic < aic_min:
+            aic_min = aic
+            bestp = p_array[x]
     #Use Akaike Information Criterion (min AIC) to find the best model among the estimated
     print("AICS values")
     print(aics)
     print('Min AICs for p = {0}'.format(p_array))
-    print(str(p_array))
     print('Minimum AIC value:')
-    print(np.amin(a=aics))
+    print(aic_min)
     print('best p:')
-    print(np.argmin(a=aics))
-    return np.argmin(a=aics)
+    print(bestp)
+    return bestp
 
 "forecast test series values by using coeff estimated with best p ARIMA"
 def auto_ARIMA_test(train_data, val_data, ylabel,  bestp, moving_average=0):
@@ -420,38 +423,33 @@ plt.legend(loc='best')
 plt.show()
 """
 
-"""
-print('------- arousal -------');
-#ARIMA on train set concat list (evaluate estimated weight on this part)
-best_p = auto_ARIMA_train(aro_train, "arousal")
-#validation
-auto_ARIMA_test(aro_train, val_valid, "arousal",  best_p)
 
-"""
-
-
-print('------- valence -------');
 
 #ARIMA on train set concat list
-#best_p = auto_ARIMA_train(val_train, 'valence')
-#validation
+#train = val_train
+#valid = val_valid
+#label = 'valence'
+train = aro_train
+valid = aro_valid
+label = 'arousal'
+
+#best_p = auto_ARIMA_train(train, label)
 
 
-""" run with found results  """
+#run with found results  
 
 alpha = 0.05 # 95% confidenza
 
-#bestp=6 estimated with AIC and PACF, d=1 for approx stationarity, q=0 as specific of the assignment
-order = (6, 1, 0)
+best_p = 9 #estimated with AIC and PACF, d=1 for approx stationarity, q=0 as specific of the assignment
+order = (best_p, 1, 0)
 
-#VALENCE
+
 # Build Model
-model = ARIMA(val_train, order=order, exog=au_train.values)
+model = ARIMA(train, order=order, exog=au_train.values)
+
+
 fitted = model.fit(disp=-1)
 print(fitted.summary())
-
-""" """
-
 
 #extract coefficents
 #print(fitted.arparams)
@@ -470,47 +468,34 @@ au_coeff_sort = au_coeff[au_sort.index]
 print('Lags coefficent values:\n{0}'.format(ar_coeff))
 print('Action units coefficent values:\n{0}'.format(au_coeff_sort))
 
-"""
-plt.figure(figsize=(6, 5))
-plt.title("Weights of the model")
-plt.plot(au_coeff.values, color='darkblue', linestyle='-', linewidth=2,
-         label="ARIMA AUs estimate")
-plt.plot(ar_coeff.values, color='orange', linestyle='-', linewidth=2,
-         label="ARIMA Lags estimate")
-#plt.plot(ols.coef_, color='yellowgreen', linestyle=':', linewidth=2,)
-plt.xlabel("Features + Lags")
-plt.ylabel("Values of the weights")
-plt.legend(loc=2)
-"""
 
 #plot weights bar in log scale
-cols_plot = ['1', '2', '3', '4', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6']
+cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
+for i in range(1,best_p+1):
+    cols_plot.append('L{0}'.format(i))
+    
 #exclude const coeff[0]
 coeff_plot = coeff[1:]
 coeff_plot.index = cols_plot
 plt.figure(figsize=(7,5))
 plt.title("ARIMA model weights - Log scale")
 plt.bar(coeff_plot.index,coeff_plot.values,log=True)
-cols_plot = ['1', '2', '3', '4', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
+plt.xlabel("Action units + Lags")
+plt.ylabel("Values of the weights")
+cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
 au_coeff.index = cols_plot
 plt.figure(figsize=(7,5))
 plt.title("Action unit weights")
 plt.bar(au_coeff.index,au_coeff.values)
+plt.xlabel("Action units")
+plt.ylabel("Values of the weights")
 
 
 
-""" implement here the forecast, without applying ARIMA, do it by hand with the estimated weights 
- """
-#auto_ARIMA_test(val_train,val_valid, "valencle", best_p)
 
+fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, alpha=alpha)
 
-
-""" 
-
-Not Needed
-
-#fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, alpha=alpha)
-
+"""
 fc_series = []
 inc_val_train = val_train
 inc_au_train = au_train
@@ -524,21 +509,21 @@ for i in range(au_valid.shape[0]):
     fc_series.append(fc)
     #this generates errors
     inc_val_train.append(fc)    
-
+"""
     
 # Make as pandas series
-fc_series = pd.Series(fc_series, index=val_valid.index)
+fc_series = pd.Series(fc, index=val_valid.index)
 lower_series = pd.Series(conf[:, 0], index=val_valid.index)
 upper_series = pd.Series(conf[:, 1], index=val_valid.index)
 
 # Plot
 plt.figure(figsize=(12,5), dpi=100)
-plt.plot(val_train, label='training')
-plt.plot(val_valid, label='actual')
+plt.plot(train, label='training')
+plt.plot(valid, label='actual')
 plt.plot(fc_series, label='forecast')
 plt.fill_between(lower_series.index, lower_series, upper_series, 
                  color='k', alpha=.15)
 plt.title('Forecast vs Actuals')
 plt.legend(loc='upper left', fontsize=8)
 plt.show()
-"""
+
