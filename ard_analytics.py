@@ -133,7 +133,7 @@ X = np.random.randn(n_samples, n_features)
 n_features = 17
 #one video 7501
 #try with 1000/3000/5000/7501 
-n_samples = au_train.shape[0]
+n_samples = au_train.shape[0]/4
 #n_samples = 1000
 
 # Create weights with a precision lambda_ of 4.
