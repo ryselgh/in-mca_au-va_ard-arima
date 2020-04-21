@@ -1,5 +1,6 @@
 import re
 import warnings
+import time
 from os import listdir
 from os.path import isfile, join
 from scipy import stats
@@ -19,6 +20,7 @@ from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
 
 #initialization:
+start = time.time()
 register_matplotlib_converters()
 warnings.filterwarnings("ignore")
 mpl.rcParams['figure.dpi'] = 1200
@@ -292,6 +294,8 @@ def auto_ARIMA(df, moving_average=0, exogenous=None, plot=True, p=3):
 def auto_ARIMA_train(train_data, ylabel, moving_average=0):
   
     
+    lag = get_aug_stationarity(train_data)
+    plot_PACF(train_data)
     #reasonable values of p obtained trying PACF on training series
     p_array = [3,4,5,6,7,8,9]
     
@@ -426,12 +430,12 @@ plt.show()
 
 
 #ARIMA on train set concat list
-#train = val_train
-#valid = val_valid
-#label = 'valence'
-train = aro_train
-valid = aro_valid
-label = 'arousal'
+train = val_train
+valid = val_valid
+label = 'valence'
+#train = aro_train
+#valid = aro_valid
+#label = 'arousal'
 
 #best_p = auto_ARIMA_train(train, label)
 
@@ -492,7 +496,6 @@ plt.ylabel("Values of the weights")
 
 
 
-
 fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, alpha=alpha)
 
 """
@@ -526,4 +529,5 @@ plt.fill_between(lower_series.index, lower_series, upper_series,
 plt.title('Forecast vs Actuals')
 plt.legend(loc='upper left', fontsize=8)
 plt.show()
-
+timeexec = time.time()-start
+print('{0}'.format(timeexec))
