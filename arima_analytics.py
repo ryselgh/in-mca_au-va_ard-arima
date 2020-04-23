@@ -1,5 +1,6 @@
 import re
 import warnings
+import time
 from os import listdir
 from os.path import isfile, join
 from scipy import stats
@@ -13,11 +14,13 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima_model import ARIMA
+from sklearn.linear_model import ARDRegression, LinearRegression
 from sklearn.metrics import mean_squared_error
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
 
 #initialization:
+start = time.time()
 register_matplotlib_converters()
 warnings.filterwarnings("ignore")
 mpl.rcParams['figure.dpi'] = 1200
@@ -112,6 +115,7 @@ for i in range(12):
     temp_au_df = pd.DataFrame(au[i])
     temp_au_df.index = temp_au_df.index + 300*i
     au_train = au_train.append(temp_au_df)
+    
 au_valid = pd.DataFrame(columns=au_cols)
 for i in range(12, 14):
     temp_au_df = pd.DataFrame(au[i])
@@ -140,6 +144,9 @@ def plot_ewe():
     for i in range(len(arousal)):
         plot_data(arousal[i], 'arousal', arousal_csv[i] + ': Evaluator Weighted Estimator', show_ewe=True, va_ewe=aro_ewe[i])
 
+
+""" This part is for Stationarity and PACF (to get a reasonable range of values for p param in ARIMA """
+# Dickey–Fuller test for stationarity of a time series
 def get_stationarity(data, win, ylabel, can_plot=True):
     
     # rolling statistics
@@ -188,11 +195,11 @@ def get_aug_stationarity(data, significance=0.05):
     for key,value in adf_test[4].items():
         results['Critical Value (%s)'%key] = value
 
-    """ print('Augmented Dickey-Fuller Test Results:')
+    print('Augmented Dickey-Fuller Test Results:')
     print(results)
-    print('Is the time series stationary? {0}'.format(is_stationary))"""
+    print('Is the time series stationary? {0}'.format(is_stationary))
     
-    return adf_test[2]
+    #return adf_test[2]
     
 def get_all_stationarity(win, can_plot=True):
     for i in range(len(val_ewe)):
@@ -221,21 +228,33 @@ def plot_ACF_PACF(df):
     plot_ACF(df)
     plot_PACF(df)
 
+""" end stationarity, PACF"""
+
+
+
+
+
+
+
+""" ARIMA MODEL application """  
+
 #AR,0,0
 #AR: PACF
 #fit -> theta, alpha
-def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True, test=False):
+def apply_ARIMA(data, ylabel, p=2, d=1, q=0, exogenous=None, plot=True, test=False):
+    
     model = ARIMA(data[gs_key], order=(p,d,q), exog=exogenous)
-    #fit esegue il template del modello con p=p' d=d' q=q'
     results = model.fit(disp=-1)
+    
     print("Parameters")   
     aic = results.aic
-    print(results.aic)
-    if test:
-        print(results.summary())
-    #print(results.mean_squared_error)
+    #print(results.aic)
+  
+   # print(results.summary())
+    #plus extract coefficents in array
     
     if plot:
+        """plotting residuals"""
         minus_shift = data - data.shift()
         #minus_shift.dropna(inplace=True) 
         plt.figure(figsize=(15,5))
@@ -246,7 +265,6 @@ def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True, test=Fal
         plt.ylabel(ylabel)
         plt.xlabel(index_name)
         plt.show()
-        print('End')
         predictions_ARIMA_diff = pd.Series(results.fittedvalues, copy=True)
         predictions_ARIMA_diff_cumsum = predictions_ARIMA_diff.cumsum()
         predictions_ARIMA_log = pd.Series(data[gs_key].iloc[0], index=data.index)
@@ -261,53 +279,69 @@ def apply_ARIMA(data, ylabel, p=2, d=1, q=2, exogenous=None, plot=True, test=Fal
         plt.show()
     return aic
    
-    
+""" redefine"""    
 def auto_ARIMA(df, moving_average=0, exogenous=None, plot=True, p=3):
+   
     lag = get_aug_stationarity(df)
     plot_PACF(df)
     #print('Applying ARIMA with order=({0},1,0)'.format(lag))
     #apply_ARIMA(df, 'arousal', p=lag, d=1, q=moving_average, exogenous=exogenous)
     print('Applying ARIMA with order=({0},1,0)'.format(p))
     apply_ARIMA(df, 'valence', p=p, d=1, q=moving_average, exogenous=exogenous, test=True)
-#start ARIMA for 3 video of arousal and calculate the mean of AIC.
-#Repeat for p = {3,5,7,9}   
-def auto_ARIMA_all(moving_average=0):
-    #len(valence_csv)
-    aics_mean = []
-    p_array = [3,5,7,9]
-    for x in range(len(p_array)):
-        
-        aics = []
-        for i in range(3):
-            print('\n---- File: ' + valence_csv[i] + ' ----\n\n')
-            print('------- valence -------')
-            df_val = val_ewe[i]
-            lag = get_aug_stationarity(df_val)
-            plot_PACF(df_val, custom_title='['+valence_csv[i]+'] Valence ')
-            print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
-            aic = apply_ARIMA(df_val, 'valence', p=p_array[x], d=1, q=moving_average, exogenous=au[i].values, plot=False)
-            aics.append(aic)
-            """print('------- arousal -------')
-            df_aro = aro_ewe[i]
-            lag = get_aug_stationarity(df_aro)
-            plot_PACF(df_aro, custom_title='['+valence_csv[i]+'] Arousal ')
-            print('Applying ARIMA with order=({0},1,{1})'.format(lag, moving_average))
-            apply_ARIMA(df_aro, 'arousal', p=lag, d=1, q=moving_average)"""
-        
-        print('\n---- Average ----\n\n')
-        print("AIC values")
-        print(aics)
-        
-        print("Average AIC")
-        print(np.mean(a=aics))
-        aics_mean.append(np.mean(a=aics))
-    print(aics_mean)
-    print('Min AICs for p = [3,5,7,9]')
-    print('minimum Avg AIC at p:')
-    print(np.argmin(a=aics_mean))
-    print('minimum AIC value:')
-    print(np.amin(a=aics_mean))
-    return np.argmin(a=aics_mean)
+
+
+"return p and estimated coefficents for the ARIMA MODEL in the train"
+def auto_ARIMA_train(train_data, ylabel, moving_average=0):
+  
+    
+    lag = get_aug_stationarity(train_data)
+    plot_PACF(train_data)
+    #reasonable values of p obtained trying PACF on training series
+    p_array = [3,4,5,6,7,8,9]
+    
+    aics = []
+    aic_min = float("inf")
+    for x in range(len(p_array)):    
+            
+        print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
+        aic = apply_ARIMA(train_data, ylabel, p=p_array[x], d=1, 
+                          q=moving_average, exogenous=au_train.values, plot=False)
+        aics.append(aic) 
+        print('AIC value')
+        print(aic)
+        if aic < aic_min:
+            aic_min = aic
+            bestp = p_array[x]
+    #Use Akaike Information Criterion (min AIC) to find the best model among the estimated
+    print("AICS values")
+    print(aics)
+    print('Min AICs for p = {0}'.format(p_array))
+    print('Minimum AIC value:')
+    print(aic_min)
+    print('best p:')
+    print(bestp)
+    return bestp
+
+"forecast test series values by using coeff estimated with best p ARIMA"
+def auto_ARIMA_test(train_data, val_data, ylabel,  bestp, moving_average=0):
+
+    print("Validation")
+    #plot of the forecast
+    #plot of the residuals
+    
+""" end ARIMA MODEL """
+
+""" ACTION UNIT and AROUSAL/VALENCE correlation """
+#define a function where to plot data to extract
+  
+         
+
+
+
+
+
+
+
 #data analysis:
 """ Copy-Paste precompiled functions:
 
@@ -356,13 +390,8 @@ plt.plot(df1[au_cols[0]])
 #pd.set_option('display.max_rows', df1.shape[0]+1)
 #print(df1)
 #auto_ARIMA(aro_ewe[1], exogenous=au[1].values)
-#best_p = auto_ARIMA_all()
 
-"""show an example of test with ARIMA(best_p,1,0) on video p21
-print('ARIMA  with best p on test video P21')
-best_p=3
-auto_ARIMA(val_ewe[4], exogenous=au[4].values, p=best_p)
-"""
+
 """
 plot_data(val_train, 'valence', '12/14 merged EWE for ARIMA training')
 plot_data(val_valid, 'valence', 'Last 2 merged EWE for ARIMA validation')
@@ -371,7 +400,7 @@ plot_data(aro_valid, 'arousal', 'Last 2 merged EWE for ARIMA validation')
 plot_data(aro_train, 'arousal', '12/14 merged EWE for ARIMA training')
 plot_data(aro_valid, 'arousal', 'Last 2 merged EWE for ARIMA validation')
 """
-
+"""
 plt.figure(figsize=(30,5))
 plt.plot(val_train, color='blue', label='training set')
 plt.plot(val_valid, color='orange', label='validation set')
@@ -382,7 +411,10 @@ plt.ylabel('valence')
 plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
+"""
 
+
+""" PLOT OF THE CONCATENATED SERIES (Blue TRAIN, Orange VALIDATION)
 plt.figure(figsize=(30,5))
 plt.plot(aro_train, color='blue', label='training set')
 plt.plot(aro_valid, color='orange', label='validation set')
@@ -393,3 +425,109 @@ plt.ylabel('arousal')
 plt.xlabel('time')
 plt.legend(loc='best')
 plt.show()
+"""
+
+
+
+#ARIMA on train set concat list
+train = val_train
+valid = val_valid
+label = 'valence'
+#train = aro_train
+#valid = aro_valid
+#label = 'arousal'
+
+#best_p = auto_ARIMA_train(train, label)
+
+
+#run with found results  
+
+alpha = 0.05 # 95% confidenza
+
+best_p = 9 #estimated with AIC and PACF, d=1 for approx stationarity, q=0 as specific of the assignment
+order = (best_p, 1, 0)
+
+
+# Build Model
+model = ARIMA(train, order=order, exog=au_train.values)
+
+
+fitted = model.fit(disp=-1)
+print(fitted.summary())
+
+#extract coefficents
+#print(fitted.arparams)
+#print(fitted.params)
+coeff = fitted.params
+au_coeff = coeff[1:18]
+au_coeff.index = au_cols
+ar_coeff = coeff[18:]
+
+#show sorted action units weights
+au_sort= au_coeff.abs().sort_values(ascending=False)
+au_sort.index
+au_coeff_sort = au_coeff[au_sort.index]
+
+
+print('Lags coefficent values:\n{0}'.format(ar_coeff))
+print('Action units coefficent values:\n{0}'.format(au_coeff_sort))
+
+
+#plot weights bar in log scale
+cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
+for i in range(1,best_p+1):
+    cols_plot.append('L{0}'.format(i))
+    
+#exclude const coeff[0]
+coeff_plot = coeff[1:]
+coeff_plot.index = cols_plot
+plt.figure(figsize=(7,5))
+plt.title("ARIMA model weights - Log scale")
+plt.bar(coeff_plot.index,coeff_plot.values,log=True)
+plt.xlabel("Action units + Lags")
+plt.ylabel("Values of the weights")
+cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
+au_coeff.index = cols_plot
+plt.figure(figsize=(7,5))
+plt.title("Action unit weights")
+plt.bar(au_coeff.index,au_coeff.values)
+plt.xlabel("Action units")
+plt.ylabel("Values of the weights")
+
+
+
+fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, alpha=alpha)
+
+"""
+fc_series = []
+inc_val_train = val_train
+inc_au_train = au_train
+dec_au_valid = au_valid
+#primo step, farlo funzionare senza action unit
+
+for i in range(au_valid.shape[0]):
+    model = ARIMA(inc_val_train, order=order, exog=inc_au_train.values)
+    fitted = model.fit(disp=-1)
+    fc, se, conf = fitted.forecast(1, exog=dec_au_valid.values alpha=alpha)
+    fc_series.append(fc)
+    #this generates errors
+    inc_val_train.append(fc)    
+"""
+    
+# Make as pandas series
+fc_series = pd.Series(fc, index=val_valid.index)
+lower_series = pd.Series(conf[:, 0], index=val_valid.index)
+upper_series = pd.Series(conf[:, 1], index=val_valid.index)
+
+# Plot
+plt.figure(figsize=(12,5), dpi=100)
+plt.plot(train, label='training')
+plt.plot(valid, label='actual')
+plt.plot(fc_series, label='forecast')
+plt.fill_between(lower_series.index, lower_series, upper_series, 
+                 color='k', alpha=.15)
+plt.title('Forecast vs Actuals')
+plt.legend(loc='upper left', fontsize=8)
+plt.show()
+timeexec = time.time()-start
+print('{0}'.format(timeexec))
