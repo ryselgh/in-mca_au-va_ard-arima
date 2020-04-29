@@ -16,13 +16,13 @@ from sklearn.linear_model import ARDRegression, LinearRegression
 register_matplotlib_converters()
 warnings.filterwarnings("ignore")
 mpl.rcParams['figure.dpi'] = 1200
-scaler = skl.MinMaxScaler(feature_range=(-1, 1), copy=False)
+
 
 valence_path = './emotional_behaviour/valence/'
 arousal_path = './emotional_behaviour/arousal/'
 val_gs_path = './emotional_behaviour/gold_standard/valence/'
 aro_gs_path = './emotional_behaviour/gold_standard/arousal/'
-au_path = './AU_reindex/'
+au_path = './AU_reindex_new/'
 index_name = 'time'
 gs_key = ['gold standard']
 
@@ -88,36 +88,37 @@ for x in au:
     x.index = x[index_name]
     x.index.names = [index_name]
     x.drop(x.columns.difference(au_cols), 1, inplace=True)
-    scaler.fit(np.array((0, 5)).reshape(-1, 1))
-    for col in au_cols:
-        scaler.transform(x[col].values.reshape(-1, 1))
+
 
 au_train = pd.DataFrame(columns=au_cols)
 for i in range(12):
     temp_au_df = pd.DataFrame(au[i])
     temp_au_df.index = temp_au_df.index + 300*i
     au_train = au_train.append(temp_au_df)
+
+
+
+#Validation
     
-
-
-#functions:
-def plot_data(data, ylabel, title, show_ewe=False, va_ewe=None, fs=8):
-    for col in data.columns:
-        plt.plot(data[col], label=col)
-    title = re.sub(r'(.txt|.csv)', '', title)
-    plt.title(title)
-    plt.ylabel(ylabel)
-    plt.xlabel(data.index.names[0])
+val_valid = pd.DataFrame(columns=gs_key)
+for i in range(12, 14):
+    temp_df = pd.DataFrame(val_ewe[i])
+    temp_df.index = temp_df.index + 300*i
+    val_valid = val_valid.append(temp_df)
     
-    if show_ewe:
-        plt.plot(va_ewe, color='black', linewidth=2, label="EWE")
-        
-    plt.legend(loc='best', fontsize=fs)
-    plt.show()
-
-def plot_ewe():
-    for i in range(len(valence)):
-        plot_data(valence[i], 'valence', valence_csv[i] + ': Evaluator Weighted Estimator', show_ewe=True, va_ewe=val_ewe[i])
+aro_valid = pd.DataFrame(columns=gs_key)
+for i in range(12, 14):
+    temp_df = pd.DataFrame(aro_ewe[i])
+    temp_df.index = temp_df.index + 300*i
+    aro_valid = aro_valid.append(temp_df)
+    
+au_valid = pd.DataFrame(columns=au_cols)
+for i in range(12, 14):
+    temp_au_df = pd.DataFrame(au[i])
+    temp_au_df.index = temp_au_df.index + 300*i
+    au_valid = au_valid.append(temp_au_df)
+    
+    
 
 
 # #############################################################################
@@ -133,8 +134,10 @@ X = np.random.randn(n_samples, n_features)
 n_features = 17
 #one video 7501
 #try with 1000/3000/5000/7501 
-n_samples = au_train.shape[0]/4
-#n_samples = 1000
+#n_samples = au_train.shape[0]/4
+n_samples = 7501
+
+n_samples_valid = 7501 #np.floor(n_samples/10)
 
 # Create weights with a precision lambda_ of 4.
 lambda_ = 4.
@@ -142,23 +145,21 @@ lambda_ = 4.
 
 w = np.zeros(n_features)
 
-"""
-# Only keep 10 weights of interest
-relevant_features = np.random.randint(0, n_features, 10)
-for i in relevant_features:
-    w[i] = stats.norm.rvs(loc=0, scale=1. / np.sqrt(lambda_))
-"""
 
 # Create noise with a precision alpha of 50.
 alpha_ = 50.
 noise = stats.norm.rvs(loc=0, scale=1. / np.sqrt(alpha_), size=n_samples)
 X = au_train.values[0:n_samples,:]
-# Create the target 
-#y = np.dot(X, w) + noise
-#y = val_train.values[0:n_samples]
-y= aro_train.values[0:n_samples]
+x_valid = au_valid.values[0:n_samples_valid,:]
+#target
+y = val_train.values[0:n_samples]
+#y= aro_train.values[0:n_samples]
+y_valid = val_valid.values[0:n_samples_valid]
+#y_valid = aro_valid.values[0:n_samples_valid]
 
-
+plt.figure(figsize=(6, 5))
+plt.plot(np.arange(0,n_samples_valid),y_valid, color='gold', linewidth=2,
+         label="Ground Truth")
 # Fit the ARD Regression
 clf = ARDRegression(compute_score=True)
 print('ARD regression')
@@ -181,11 +182,6 @@ print(au_sort)
 
 
 
-#ols = LinearRegression()
-#ols.fit(X, y)
-#OLS_coef = clf.coef_
-# Plot the true weights, the estimated weights, the histogram of the
-# weights, and predictions with standard deviations
 plt.figure(figsize=(6, 5))
 plt.title("Weights of the model")
 plt.plot(clf.coef_, color='darkblue', linestyle='-', linewidth=2,
@@ -207,7 +203,7 @@ plt.legend(loc=1)
 
 plt.figure(figsize=(6, 5))
 plt.title("Marginal log-likelihood")
-plt.plot(clf.scores_, color='navy', linewidth=2)
+plt.plot(np.arange(0,len(clf.scores_),1),clf.scores_, color='navy', linewidth=2)
 plt.ylabel("Score")
 plt.xlabel("Iterations")
 
@@ -217,6 +213,18 @@ plt.title("Action unit weights")
 plt.bar(au_coeff.index,au_coeff.values)
 plt.xlabel("Action units")
 plt.ylabel("Values of the weights")
+
+
+#fare lo smooth qui
+plt.figure(figsize=(6, 5))
+plt.title("Predictions")
+y_mean, y_std = clf.predict(x_valid, return_std=True)
+axis =np.arange(0,7501)
+plt.plot(axis,y_mean, color='navy',label="ARD", linewidth=2)
+plt.plot(axis,y_valid, color='gold', linewidth=2,label="Ground Truth")
+plt.xlabel("Samples")
+plt.ylabel("Valence")
+plt.legend(loc='upper left', fontsize=8)
 
 
 """

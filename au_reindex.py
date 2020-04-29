@@ -9,10 +9,10 @@ from os.path import isfile, join
 import matplotlib.pyplot as plt
 
 #initialization:
-scaler = skl.MinMaxScaler(feature_range=(-1, 1), copy=False)
+scaler = skl.MinMaxScaler(feature_range=(0, 1), copy=False)
 
 au_path = './AU/'
-au_ri_path = './AU_reindex/'
+au_ri_path = './AU_reindex_new/'
 val_gs_path = './emotional_behaviour/gold_standard/valence/'
 
 index_name = 'time'
