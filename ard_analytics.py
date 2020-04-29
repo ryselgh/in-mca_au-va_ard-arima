@@ -139,21 +139,31 @@ n_samples = au_train.shape[0]/4
 
 #validation set
 n_samples_valid = 7501 
+#try with 1000/3000/5000/7501 
+n_samples = au_train.shape[0]/4
+#n_samples = 7501
+
+n_samples_valid = 7501 #np.floor(n_samples/10)
 
 # Create weights with a precision lambda_ of 4.
 lambda_ = 4.
 
 
 
+
 X = au_train.values[0:n_samples,:]
 x_valid = au_valid.values[0:n_samples_valid,:]
+
 #target: swtich between Valence and Arousal
+#target
 y = val_train.values[0:n_samples]
 #y= aro_train.values[0:n_samples]
 y_valid = val_valid.values[0:n_samples_valid]
 #y_valid = aro_valid.values[0:n_samples_valid]
 
-
+plt.figure(figsize=(6, 5))
+plt.plot(np.arange(0,n_samples_valid),y_valid, color='gold', linewidth=2,
+         label="Ground Truth")
 # Fit the ARD Regression
 clf = ARDRegression(compute_score=True)
 print('ARD regression')
@@ -215,9 +225,39 @@ plt.title("Predictions")
 y_predict, y_std = clf.predict(x_valid, return_std=True)
 axis =np.arange(0,n_samples_valid)
 plt.plot(axis,y_predict, color='navy',label="ARD", linewidth=2)
+y_mean, y_std = clf.predict(x_valid, return_std=True)
+axis =np.arange(0,7501)
+plt.plot(axis,y_mean, color='navy',label="ARD", linewidth=2)
 plt.plot(axis,y_valid, color='gold', linewidth=2,label="Ground Truth")
 plt.xlabel("Samples")
 plt.ylabel("Valence")
 plt.legend(loc='upper left', fontsize=8)
 
+"""
+# Plotting some predictions for polynomial regression
+def f(x, noise_amount):
+    y = np.sqrt(x) * np.sin(x)
+    noise = np.random.normal(0, 1, len(x))
+    return y + noise_amount * noise
 
+
+degree = 10
+for i in range(n_features):
+    featureX = X[:,i]
+    #y = f(X, noise_amount=1)
+    clf_poly = ARDRegression(threshold_lambda=1e5)
+    clf_poly.fit(np.vander(featureX, degree), y)
+
+    X_plot = np.linspace(0, n_samples, n_samples)
+    y_plot = y
+    y_mean, y_std = clf_poly.predict(np.vander(X_plot, degree), return_std=True)
+    plt.figure(figsize=(6, 5))
+    plt.errorbar(X_plot, y_mean, y_std, color='navy',
+                 label="Polynomial ARD", linewidth=2)
+    plt.plot(X_plot, y_plot, color='gold', linewidth=2,
+             label="Ground Truth")
+    plt.ylabel("Output y")
+    plt.xlabel("Feature X")
+    plt.legend(loc="lower left")
+    plt.show()
+"""
