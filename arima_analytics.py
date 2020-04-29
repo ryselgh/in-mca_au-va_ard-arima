@@ -106,9 +106,9 @@ for x in au:
     x.index = x[index_name]
     x.index.names = [index_name]
     x.drop(x.columns.difference(au_cols), 1, inplace=True)
-    scaler.fit(np.array((0, 5)).reshape(-1, 1))
-    for col in au_cols:
-        scaler.transform(x[col].values.reshape(-1, 1))
+   # scaler.fit(np.array((0, 5)).reshape(-1, 1))
+   # for col in au_cols:
+   #     scaler.transform(x[col].values.reshape(-1, 1))
 
 au_train = pd.DataFrame(columns=au_cols)
 for i in range(12):
