@@ -134,16 +134,16 @@ X = np.random.randn(n_samples, n_features)
 n_features = 17
 #one video 7501
 
-n_samples = au_train.shape[0]/4
+#n_samples = au_train.shape[0]/4
 #n_samples = 7501
 
 #validation set
 n_samples_valid = 7501 
 #try with 1000/3000/5000/7501 
-n_samples = au_train.shape[0]/4
-#n_samples = 7501
+#n_samples = au_train.shape[0]/4
+n_samples = 7501
 
-n_samples_valid = 7501 #np.floor(n_samples/10)
+#n_samples_valid = 7501 #np.floor(n_samples/10)
 
 # Create weights with a precision lambda_ of 4.
 lambda_ = 4.
@@ -220,15 +220,18 @@ plt.ylabel("Values of the weights")
 
 
 #fare lo smooth qui
+def smooth(y, box_pts):
+    box = np.ones(box_pts)/box_pts
+    y_smooth = np.convolve(y, box, mode='same')
+    return y_smooth
+
 plt.figure(figsize=(6, 5))
 plt.title("Predictions")
 y_predict, y_std = clf.predict(x_valid, return_std=True)
 axis =np.arange(0,n_samples_valid)
-plt.plot(axis,y_predict, color='navy',label="ARD", linewidth=2)
-y_mean, y_std = clf.predict(x_valid, return_std=True)
-axis =np.arange(0,7501)
-plt.plot(axis,y_mean, color='navy',label="ARD", linewidth=2)
-plt.plot(axis,y_valid, color='gold', linewidth=2,label="Ground Truth")
+plt.plot(axis,y_predict, color='lightsteelblue', linewidth=0.5, linestyle='dotted', markersize=0.8, label="ARD", marker='.')
+plt.plot(axis,smooth(y_predict,100), color='navy',label="ARD smoothed")
+plt.plot(axis,y_valid, color='gold', linewidth=2, label="Ground Truth")
 plt.xlabel("Samples")
 plt.ylabel("Valence")
 plt.legend(loc='upper left', fontsize=8)
