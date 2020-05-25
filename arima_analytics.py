@@ -16,6 +16,7 @@ from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima_model import ARIMA
 from sklearn.linear_model import ARDRegression, LinearRegression
 from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error as mae
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
 
@@ -181,7 +182,7 @@ def get_aug_stationarity(data, significance=0.05):
 
     #Dickey-Fuller test:
     adf_test = adfuller(data.iloc[:,0].values, autolag='AIC')
-    
+    print(adf_test)
     p_value = adf_test[1]
     
     if (p_value < significance):
@@ -213,7 +214,7 @@ def plot_ACF(df, custom_title=''):
     minus_shift.dropna(inplace=True)
     df = minus_shift
     custom_title = re.sub(r'(.txt|.csv)', '', custom_title)
-    plot_acf(df, ax=plt.gca(), lags=range(50), title=custom_title+'Partial Autocorrelation')
+    plot_acf(df, ax=plt.gca(), lags=range(50), title=custom_title+' Autocorrelation')
     plt.show()
     
 def plot_PACF(df, custom_title=''):
@@ -295,23 +296,26 @@ def auto_ARIMA_train(train_data, ylabel, moving_average=0):
   
     
     lag = get_aug_stationarity(train_data)
+    plot_ACF(train_data)
     plot_PACF(train_data)
     #reasonable values of p obtained trying PACF on training series
     p_array = [3,4,5,6,7,8,9]
-    
+    #reasonable values of p obtained trying PACF on training series
+    q_array = [0,1,2,3,4,5]
     aics = []
     aic_min = float("inf")
     for x in range(len(p_array)):    
-            
-        print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], moving_average))
-        aic = apply_ARIMA(train_data, ylabel, p=p_array[x], d=1, 
-                          q=moving_average, exogenous=au_train.values, plot=False)
-        aics.append(aic) 
-        print('AIC value')
-        print(aic)
-        if aic < aic_min:
-            aic_min = aic
-            bestp = p_array[x]
+        for y in range(len(q_array)):      
+            print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], q_array[y]))
+            aic = apply_ARIMA(train_data, ylabel, p=p_array[x], d=1, 
+                          q=q_array[y], exogenous=au_train.values, plot=False)
+            aics.append(aic) 
+            print('AIC value')
+            print(aic)
+            if aic < aic_min:
+                aic_min = aic
+                bestq = q_array[y]
+                bestp = p_array[x]
     #Use Akaike Information Criterion (min AIC) to find the best model among the estimated
     print("AICS values")
     print(aics)
@@ -320,7 +324,9 @@ def auto_ARIMA_train(train_data, ylabel, moving_average=0):
     print(aic_min)
     print('best p:')
     print(bestp)
-    return bestp
+    print('best q:')
+    print(bestq)
+    return bestp, bestq
 
 "forecast test series values by using coeff estimated with best p ARIMA"
 def auto_ARIMA_test(train_data, val_data, ylabel,  bestp, moving_average=0):
@@ -430,22 +436,23 @@ plt.show()
 
 
 #ARIMA on train set concat list
-train = val_train
-valid = val_valid
-label = 'valence'
-#train = aro_train
-#valid = aro_valid
-#label = 'arousal'
-
-#best_p = auto_ARIMA_train(train, label)
+#train = val_train
+#valid = val_valid
+#label = 'valence'
+train = aro_train
+valid = aro_valid
+label = 'arousal'
+#lag = get_aug_stationarity(train)
+#best_p, best_q = auto_ARIMA_train(train, label)
 
 
 #run with found results  
 
 alpha = 0.05 # 95% confidenza
 
-best_p = 9 #estimated with AIC and PACF, d=1 for approx stationarity, q=0 as specific of the assignment
-order = (best_p, 1, 0)
+best_p = 4 #estimated with AIC and PACF, d=1 for approx stationarity
+best_q = 1 #estimated with AIC and ACF
+order = (best_p, 0, best_q)
 
 
 # Build Model
@@ -454,7 +461,7 @@ model = ARIMA(train, order=order, exog=au_train.values)
 
 fitted = model.fit(disp=-1)
 print(fitted.summary())
-
+"""
 #extract coefficents
 #print(fitted.arparams)
 #print(fitted.params)
@@ -494,6 +501,8 @@ plt.bar(au_coeff.index,au_coeff.values)
 plt.xlabel("Action units")
 plt.ylabel("Values of the weights")
 
+
+"""
 
 
 fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, alpha=alpha)
