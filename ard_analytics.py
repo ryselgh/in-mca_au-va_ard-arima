@@ -2,6 +2,8 @@ import re
 import warnings
 from os import listdir
 from os.path import isfile, join
+import pickle
+import time
 from scipy import stats
 import numpy as np
 import sklearn.preprocessing as skl
@@ -11,6 +13,8 @@ from pandas.plotting import lag_plot
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from sklearn.linear_model import ARDRegression, LinearRegression
+from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_squared_error
 
 #initialization:
 register_matplotlib_converters()
@@ -51,7 +55,7 @@ for x in val_ewe:
     x.drop([index_name], 1, inplace=True)
     
 val_train = pd.DataFrame(columns=gs_key)
-for i in range(12):
+for i in range(2):
     temp_df = pd.DataFrame(val_ewe[i])
     temp_df.index = temp_df.index + 300*i
     val_train = val_train.append(temp_df)
@@ -74,7 +78,7 @@ for x in aro_ewe:
     x.drop([index_name], 1, inplace=True)
     
 aro_train = pd.DataFrame(columns=gs_key)
-for i in range(12):
+for i in range(2):
     temp_df = pd.DataFrame(aro_ewe[i])
     temp_df.index = temp_df.index + 300*i
     aro_train = aro_train.append(temp_df)
@@ -91,33 +95,11 @@ for x in au:
 
 
 au_train = pd.DataFrame(columns=au_cols)
-for i in range(12):
+for i in range(2):
     temp_au_df = pd.DataFrame(au[i])
     temp_au_df.index = temp_au_df.index + 300*i
     au_train = au_train.append(temp_au_df)
 
-
-
-#Validation
-    
-val_valid = pd.DataFrame(columns=gs_key)
-for i in range(12, 14):
-    temp_df = pd.DataFrame(val_ewe[i])
-    temp_df.index = temp_df.index + 300*i
-    val_valid = val_valid.append(temp_df)
-    
-aro_valid = pd.DataFrame(columns=gs_key)
-for i in range(12, 14):
-    temp_df = pd.DataFrame(aro_ewe[i])
-    temp_df.index = temp_df.index + 300*i
-    aro_valid = aro_valid.append(temp_df)
-    
-au_valid = pd.DataFrame(columns=au_cols)
-for i in range(12, 14):
-    temp_au_df = pd.DataFrame(au[i])
-    temp_au_df.index = temp_au_df.index + 300*i
-    au_valid = au_valid.append(temp_au_df)
-    
     
 
 
@@ -132,59 +114,100 @@ n_samples, n_features = 100, 45
 X = np.random.randn(n_samples, n_features)
 """
 n_features = 17
-#one video 7501
-
-#n_samples = au_train.shape[0]/4
-#n_samples = 7501
+#one video size: 7501
 
 #validation set
-n_samples_valid = 7501 
-#try with 1000/3000/5000/7501 
-#n_samples = au_train.shape[0]/4
-n_samples = 7501
-
-#n_samples_valid = 7501 #np.floor(n_samples/10)
+n_samples = au_train.shape[0]
+n_samples_train = int(n_samples/4*3)
+n_samples_valid = n_samples - n_samples_train
+print(n_samples)
+print(n_samples_valid)
+#n_samples = 11251
+#n_samples_valid = 3751
 
 # Create weights with a precision lambda_ of 4.
 lambda_ = 4.
 
+#MENU
+ans = True
+while ans == True:
+    print('\nARD regression')
+    print (" 1) Compute and save\n 2) Load")
+    ans = input("Choice: ") 
+    if ans == "1":
+        ans = True
+        while ans == True:
+            print('\nChoose target:')
+            print (" 1) Valence\n 2) Arousal")
+            ans = input("Choice: ") 
+            if ans == "1":
+                data_dim = "valence"
+                y = val_train.values[0:n_samples_train]
+            elif ans == "2":
+                data_dim = "arousal"
+                y = aro_train.values[0:n_samples_train]
+            else:
+                ans = True
+                print("Invalid input.")
+        print("n_samples = " + str(n_samples))
+        print("\nComputing ARD regression...") 
+        X = au_train.values[0:n_samples_train,:]
+        x_valid = au_train.values[n_samples_train:n_samples,:]
+        clf = ARDRegression(compute_score=True)
+        clf.fit(X, y)
+        print("Fitted "+data_dim)
+        ts = time.gmtime()
+        filename = time.strftime("saved/"+data_dim+"_nsamples="+str(n_samples)+"_%d-%m-%Y_%H%M%S.ardreg", ts)
+        file = open(filename, 'wb')
+        pickle.dump(clf, file)
+        file.close()
+        print("Done!\n") 
+    elif ans == "2":
+        saved_list = [f for f in listdir("saved") if isfile(join("saved", f))]
+        saved_list = [x for x in saved_list if ".ardreg" in x]
+        if len(saved_list) == 0:
+            print("No saved computation files found!")
+            ans = True
+        else:
+            print("\nChoose file:")
+            for a, b in enumerate(saved_list, 1):
+                print(' {}) {}'.format(a, b))
+            file_i = input("Choice: ")
+            if not file_i.isdigit() or int(file_i) < 1 or int(file_i) > len(saved_list):
+                ans = True
+                print("Invalid input.")
+            else:
+                filename = saved_list[int(file_i)-1]
+                file = open("saved/" + filename, 'rb')
+                clf = pickle.load(file)
+                file.close()
+                data_dim = filename.split('_')[0]
+                n_samples = int(filename.split('_')[1].split('=')[1])
+                X = au_train.values[0:n_samples,:]
+                x_valid = au_train.values[n_samples_train:n_samples,:]
+                
+                print("Loaded file " + filename + "\n")
+                print("n_samples = " + str(n_samples))
+    else:
+        ans = True
+        print("Invalid input.")
 
 
-
-X = au_train.values[0:n_samples,:]
-x_valid = au_valid.values[0:n_samples_valid,:]
-
-#target: swtich between Valence and Arousal
-#target
-y = val_train.values[0:n_samples]
-#y= aro_train.values[0:n_samples]
-y_valid = val_valid.values[0:n_samples_valid]
-#y_valid = aro_valid.values[0:n_samples_valid]
-
-plt.figure(figsize=(6, 5))
-plt.plot(np.arange(0,n_samples_valid),y_valid, color='gold', linewidth=2,
-         label="Ground Truth")
-# Fit the ARD Regression
-clf = ARDRegression(compute_score=True)
-print('ARD regression')
-clf.fit(X, y)
-ARD_coef = clf.coef_
-print('fitted')
-
+#Setup plot
+if data_dim == "valence":
+    y_valid = val_train.values[n_samples_train:n_samples,:]
+else:
+    y_valid = aro_train.values[n_samples_train:n_samples,:]
 
 #show sorted action units weights
-
-au_coeff = pd.Series(ARD_coef)
+au_coeff = pd.Series(clf.coef_)
 au_coeff.index = au_cols
 au_sort= au_coeff.abs().sort_values(ascending=False)
 au_sort.index
 au_sort = au_coeff[au_sort.index]
-
 au_cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', '20', '23', '25', '26', '45']
 au_coeff.index = au_cols_plot
 print(au_sort)
-
-
 
 plt.figure(figsize=(6, 5))
 plt.title("Weights of the model")
@@ -219,7 +242,7 @@ plt.xlabel("Action units")
 plt.ylabel("Values of the weights")
 
 
-#fare lo smooth qui
+
 def smooth(y, box_pts):
     box = np.ones(box_pts)/box_pts
     y_smooth = np.convolve(y, box, mode='same')
@@ -235,6 +258,11 @@ plt.plot(axis,y_valid, color='gold', linewidth=2, label="Ground Truth")
 plt.xlabel("Samples")
 plt.ylabel("Valence")
 plt.legend(loc='upper left', fontsize=8)
+print("MAE")
+print(mean_absolute_error(y_predict, y_valid))
+print("RMSE")
+print(np.sqrt(mean_squared_error(y_predict, y_valid)))
+
 
 """
 # Plotting some predictions for polynomial regression
