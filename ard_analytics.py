@@ -1,4 +1,3 @@
-import re
 import warnings
 from os import listdir
 from os.path import isfile, join
@@ -9,7 +8,6 @@ import numpy as np
 import sklearn.preprocessing as skl
 import pandas as pd
 from pandas.plotting import register_matplotlib_converters
-from pandas.plotting import lag_plot
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from sklearn.linear_model import ARDRegression, LinearRegression
@@ -21,7 +19,7 @@ register_matplotlib_converters()
 warnings.filterwarnings("ignore")
 mpl.rcParams['figure.dpi'] = 1200
 
-
+#constant strings definition:
 valence_path = './emotional_behaviour/valence/'
 arousal_path = './emotional_behaviour/arousal/'
 val_gs_path = './emotional_behaviour/gold_standard/valence/'
@@ -29,14 +27,13 @@ aro_gs_path = './emotional_behaviour/gold_standard/arousal/'
 au_path = './AU_reindex_new/'
 index_name = 'time'
 gs_key = ['gold standard']
-
 va_cols = ['FM1','FM2','FM3','FF1','FF2','FF3']
 au_cols = ['AU01_r', 'AU02_r', 'AU04_r', 'AU05_r', 'AU06_r', 'AU07_r', 'AU09_r', 'AU10_r', 'AU12_r', 'AU14_r', 'AU15_r', 'AU17_r', 'AU20_r', 'AU23_r', 'AU25_r', 'AU26_r', 'AU45_r']
-
 valence_csv = [f for f in listdir(valence_path) if isfile(join(valence_path, f))]
 arousal_csv = [f for f in listdir(arousal_path) if isfile(join(arousal_path, f))]
 au_csv = [f for f in listdir(au_path) if isfile(join(au_path, f))]
 
+#define data arrays:
 valence = []
 for csv_file in valence_csv:
     new_valence = pd.read_csv(valence_path + csv_file, sep=';')
@@ -100,32 +97,20 @@ for i in range(2):
     temp_au_df.index = temp_au_df.index + 300*i
     au_train = au_train.append(temp_au_df)
 
-    
 
+###################################################
+# Generating simulated data with Gaussian weights #
+###################################################
 
-# #############################################################################
-# Generating simulated data with Gaussian weights
-
-"""
-# Parameters of the example
-np.random.seed(0)
-n_samples, n_features = 100, 45
-# Create Gaussian data
-X = np.random.randn(n_samples, n_features)
-"""
+#number of features
 n_features = 17
-#one video size: 7501
 
-#validation set
+#define validation set domain
 n_samples = au_train.shape[0]
 n_samples_train = int(n_samples/4*3)
 n_samples_valid = n_samples - n_samples_train
-print(n_samples)
-print(n_samples_valid)
-#n_samples = 11251
-#n_samples_valid = 3751
 
-# Create weights with a precision lambda_ of 4.
+#create weights with a precision lambda of 4.
 lambda_ = 4.
 
 #MENU
@@ -191,9 +176,9 @@ while ans == True:
     else:
         ans = True
         print("Invalid input.")
+#END MENU
 
-
-#Setup plot
+#setup plot
 if data_dim == "valence":
     y_valid = val_train.values[n_samples_train:n_samples,:]
 else:
@@ -209,12 +194,11 @@ au_cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17',
 au_coeff.index = au_cols_plot
 print(au_sort)
 
+#plot data
 plt.figure(figsize=(6, 5))
 plt.title("Weights of the model")
 plt.plot(clf.coef_, color='darkblue', linestyle='-', linewidth=2,
          label="ARD estimate")
-#plt.plot(ols.coef_, color='yellowgreen', linestyle=':', linewidth=2,)
-#plt.plot(w, color='orange', linestyle='-', linewidth=2, label="Ground truth")
 plt.xlabel("Features")
 plt.ylabel("Values of the weights")
 plt.legend(loc=1)
@@ -222,8 +206,6 @@ plt.legend(loc=1)
 plt.figure(figsize=(6, 5))
 plt.title("Histogram of the weights")
 plt.hist(clf.coef_, bins=n_features, color='navy', log=True)
-#plt.scatter(clf.coef_[relevant_features], np.full(10, 5.),
-#            color='gold', marker='o', label="Relevant features")
 plt.ylabel("#Features")
 plt.xlabel("Values of the weights")
 plt.legend(loc=1)
@@ -242,7 +224,7 @@ plt.xlabel("Action units")
 plt.ylabel("Values of the weights")
 
 
-
+#smooth function to make plotted data more human readable
 def smooth(y, box_pts):
     box = np.ones(box_pts)/box_pts
     y_smooth = np.convolve(y, box, mode='same')
