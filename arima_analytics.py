@@ -14,6 +14,8 @@ from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.arima_model import ARIMA
 from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.graphics.tsaplots import plot_pacf
+from sklearn.metrics import mean_absolute_error
+from sklearn.metrics import mean_squared_error
 
 #initialization:
 start = time.time()
@@ -178,7 +180,8 @@ def get_aug_stationarity(data, significance=0.05):
     else:
         is_stationary = False
     
-    results = pd.Series(adf_test[0:4], index=['ADF Test Statistic','P-Value','# Lags Used','# Observations Used'])
+    results = pd.Series(adf_test[0:4], index=['ADF Test Statistic','P-Value',
+                                              '# Lags Used','# Observations Used'])
 
     #Add Critical Values
     for key,value in adf_test[4].items():
@@ -202,7 +205,8 @@ def plot_ACF(df, custom_title=''):
     minus_shift.dropna(inplace=True)
     df = minus_shift
     custom_title = re.sub(r'(.txt|.csv)', '', custom_title)
-    plot_acf(df, ax=plt.gca(), lags=range(50), title=custom_title+' Autocorrelation')
+    plot_acf(df, ax=plt.gca(), lags=range(50), title=custom_title+
+             ' Autocorrelation')
     plt.show()
     
 def plot_PACF(df, custom_title=''):
@@ -210,7 +214,8 @@ def plot_PACF(df, custom_title=''):
     minus_shift.dropna(inplace=True)
     df = minus_shift
     custom_title = re.sub(r'(.txt|.csv)', '', custom_title)
-    plot_pacf(df, ax=plt.gca(), lags=range(50), title=custom_title+'Partial Autocorrelation')
+    plot_pacf(df, ax=plt.gca(), lags=range(50), title=custom_title+
+              'Partial Autocorrelation')
     plt.show()
 
 def plot_ACF_PACF(df):
@@ -218,26 +223,123 @@ def plot_ACF_PACF(df):
     plot_PACF(df)
 
 
-###########################
-#       ARIMA MODEL       #
-###########################
+#####################################
+#       ARIMA MODEL HYPERPARAMETERS #
+#####################################   
+"return p and estimated coefficents for the ARIMA MODEL in the train"
+def auto_ARIMA_train(train_data, ylabel, moving_average=0):
+    lag = get_aug_stationarity(train_data)
+    plot_PACF(train_data)
+    #reasonable values of p obtained trying PACF on training series
+    p_array = [3,4,5,6,7,8,9]
+    
+    aics = []
+    aic_min = float("inf")
+    for x in range(len(p_array)):    
+            
+        print('Applying ARIMA with order=({0},1,{1})'.format(p_array[x], 
+                                                             moving_average))
+        aic = apply_ARIMA(train_data, ylabel, p=p_array[x], d=1, 
+                          q=moving_average, exogenous=au_train.values, 
+                          plot=False)
+        aics.append(aic) 
+        print('AIC value')
+        print(aic)
+        if aic < aic_min:
+            aic_min = aic
+            bestp = p_array[x]
+    #Use Akaike Information Criterion (min AIC) to find the best model among the estimated
+    print("AICS values")
+    print(aics)
+    print('Min AICs for p = {0}'.format(p_array))
+    print('Minimum AIC value:')
+    print(aic_min)
+    print('best p:')
+    print(bestp)
+    return bestp
 
-#ARIMA on train set concat list
-train = aro_train
-valid = aro_valid
-label = 'arousal'
 
-#run with found results  
+###########################
+#       ARIMA MODEL TEST  #
+###########################
+ans = True
+while ans == True:
+    print('\nARIMA')
+    print('\nChoose target:')
+    print (" 1) Valence\n 2) Arousal")
+    ans = input("Choice: ") 
+    if ans == "1":
+        train = val_train
+        valid = val_valid
+        label = 'valence'
+    elif ans == "2":
+        train = aro_train
+        valid = aro_valid
+        label = 'arousal'
+    else:
+        ans = True
+        print("Invalid input.")
+
+#To find order(p,q,d) with PACF, AIC and ADF test:       
+#best_p = auto_ARIMA_train(train, label)
+
+#run with found results  searching for best_p
 alpha = 0.05 # 95% confidence
-best_p = 4 #estimated with AIC and PACF, d=1 for approx stationarity
-best_q = 1 #estimated with AIC and ACF
-order = (best_p, 0, best_q)
+best_p = 9 #estimated with AIC and PACF, d=1 for approx stationarity
+order = (best_p, 1, 0)
 
 # Build Model
 model = ARIMA(train, order=order, exog=au_train.values)
 fitted = model.fit(disp=-1)
 print(fitted.summary())
-fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, alpha=alpha)
+
+
+
+
+#SHOW model parameter estimation----------------------------------------------
+coeff = fitted.params
+au_coeff = coeff[1:18]
+au_coeff.index = au_cols
+ar_coeff = coeff[18:]
+
+#show sorted action units weights
+au_sort= au_coeff.abs().sort_values(ascending=False)
+au_sort.index
+au_coeff_sort = au_coeff[au_sort.index]
+
+
+print('Lags coefficent values:\n{0}'.format(ar_coeff))
+print('Action units coefficent values:\n{0}'.format(au_coeff_sort))
+#plot weights bar in log scale
+cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', 
+             '20', '23', '25', '26', '45']
+for i in range(1,best_p+1):
+    cols_plot.append('L{0}'.format(i))
+    
+#exclude const coeff[0]
+coeff_plot = coeff[1:]
+coeff_plot.index = cols_plot
+plt.figure(figsize=(7,5))
+plt.title("ARIMA model absolute value of weights - Log scale")
+plt.bar(coeff_plot.index,np.absolute(coeff_plot.values),log=True)
+plt.xlabel("Action units + Lags")
+plt.ylabel("Values of the weights")
+cols_plot = ['1', '2', '4', '5', '6', '7', '9', '10', '12', '14', '15', '17', 
+             '20', '23', '25', '26', '45']
+au_coeff.index = cols_plot
+plt.figure(figsize=(7,5))
+plt.title("Action unit weights")
+plt.bar(au_coeff.index,au_coeff.values)
+plt.xlabel("Action units")
+plt.ylabel("Values of the weights")
+
+
+
+
+#forecast the validation set---------------------------------------------------
+
+fc, se, conf = fitted.forecast(au_valid.shape[0], exog=au_valid.values, 
+                               alpha=alpha)
     
 # Make as pandas series
 fc_series = pd.Series(fc, index=val_valid.index)
@@ -254,5 +356,11 @@ plt.fill_between(lower_series.index, lower_series, upper_series,
 plt.title('Forecast vs Actuals')
 plt.legend(loc='upper left', fontsize=8)
 plt.show()
+
+#RMSE and MAE metrics
+print("MAE")
+print(mean_absolute_error(fc_series, valid))
+print("RMSE")
+print(np.sqrt(mean_squared_error(fc_series, valid)))
 timeexec = time.time()-start
 print('{0}'.format(timeexec))
