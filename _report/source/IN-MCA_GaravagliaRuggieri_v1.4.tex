@@ -1,0 +1,428 @@
+%formulas
+%images
+%tables
+%https://it.wikipedia.org/wiki/Aiuto:Formule_matematiche_TeX
+\documentclass[10pt,journal,compsoc]{IEEEtran}
+\usepackage[justification=centering]{caption}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[skins]{tcolorbox}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{float}
+\DeclareMathOperator*{\argmin}{argmin}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newtcolorbox{mycolorbox}[1][]{commonstyle,#1}
+
+\ifCLASSOPTIONcompsoc
+
+  \usepackage[nocompress]{cite}
+\else
+
+  \usepackage{cite}
+\fi
+
+\ifCLASSINFOpdf
+
+\else
+ 
+\fi
+
+\hyphenation{op-tical net-works semi-conduc-tor}
+
+
+\begin{document}
+
+\title{Dipendenze lineari tra Action Units\\ e stati affettivi}
+
+
+\author{Francesco Garavaglia 889105, Saverio Ruggieri 916571}
+% make the title area
+\maketitle
+\begin{abstract} 
+Il sistema \textbf{Facial Action Coding System (FACS)} viene utilizzato per descrivere le espressioni facciali, estraendo le \textbf{Action Units (AUs)}, ovvero le azioni fondamentali di un gruppo di muscoli della faccia. Come strumento di valutazione dello  stato emotivo di un individuo, spesso si ricorre ad annotazioni manuali delle reazioni emotive dei soggetti, in termini di \textbf{valence}, grado di piacevolezza provato dall'individuo, e \textbf{arousal}, che valuta quanto esso sia calmo o agitato. In questo articolo si propone di trovare una dipendenza fra serie di valori di Action Units estratte automaticamente, e serie di valori di arousal e valence annotati da operatori umani durante un esperimento. L'analisi e la simulazione del problema è stata fatta applicando due tecniche di regressione lineare, usate per stimare valori di valence e arousal dati i valori delle Action Units, atraverso due approcci differenti. Nel primo caso, si è tenuto conto solo del contributo dato dalle Action Units facendo una regressione lineare con \textbf{ARD (Automatic Relevance Determination)}, mentre nel secondo, è stato applicato \textbf{ARIMA (AutoRegressive Integrated Moving Average)}, un'autoregressione dei valori di una una serie temporale, che nella predizione utilizza i valori precedenti di arousal e valence della serie come feature del modello, trattando le Action Units come variabili esogene. Attraverso la regressione con ARD, è risultato che alcune Action Units hanno peso più significativo di altre nella stima di valence e arousal. Non si può dire la stessa cosa del risultato ottenuto con ARIMA, dove si evince che il contributo maggiore nell'autoregressione  è dato dai valori precendenti della serie, che sono molto più significativi delle Action Units.
+L’esperimento è stato condotto utilizzando \textbf{RECOLA}, un dataset francese contenente fra le altre, l'estrazione delle Action Units e le annotazioni di arousal e valence, fatte da 6 annotatori osservando video di coppie di lavoratori in smart working. In questo progetto è stata applicata una gold standard sulle annotazioni, ottenuta applicando \textbf{EWE (Evaluator Weighted Estimator)}, per gestire il problema legato alla soggettività degli annotatori.\end{abstract}
+\section{INTRODUZIONE}\label{sec:introduzione}
+\IEEEPARstart{}
+Il riconoscimento delle espressioni facciali è un ambito importante per l'estrazione di informazioni relative allo stato emotivo di un individuo. Facial Action Coding System (FACS) è un sistema che viene utilizzato per descriverle attraverso l'estrazione di Action Units (AUs), ovvero le azioni fondamentali di un gruppo di muscoli della faccia. Nel dominio delle emozioni,  valutazioni sullo stato emotivo possono essere fatte anche attribuendo valori nello spazio dimensionale di valence e arousal. La prima è un indicatore fondamentale nella descrizione di un'emozione ed esprime il livello di piacevolezza dell’individuo, mentre la seconda, è un indicatore per l’intensità dell'emozione provata, basso se il soggetto è in uno stato di calma, alto se è agitato\cite{ellsworth}. Il rilevamento di dati di valence e arousal viene fatto da utenti esterni all’esperimento o dai soggetti dello stesso, che annotano i valori del dominio emozionale attraverso l'utilizzo di alcuni tool di supporto. Questo tipo di approccio al rilevamento dei dati però, da luogo ad annotazioni che sono soggettive, perchè dipendono dall'interpretazione data dall'annotatore. Per questo motivo, in questo progetto è stata ricercata una dipendenza tra valori dello spazio emotivo valence e arousal, e le Action Units descritte dal sistema FACS.\\
+\emph{Importanza del problema:}
+La comunicazione non verbale è uno strumento molto utile per inferire lo stato emotivo di un individuo, nell'ambito dell'interazione naturale, infatti è comune rilevare dati fisiologici come il battito cardiaco o la conduttanza cutanea come indicatori per le valutazioni di emozioni. Tra gli elementi della comunicazione non verbale, c'è anche il riconoscimento delle espressioni facciali. Non esiste al momento un sistema che permetta di ottenere informazioni sullo stato emotivo di un soggetto nello spazio di arousal e valence, a partire dall'analisi di espressioni facciali estratte come Action Units. Non è stato infatti dimostrata l'esistenza di un diretto collegamento fra i due spazi emotivi. Il perchè dimostrare questa dipendenza sarebbe utile, sta nel fatto che le  espressione facciali  sono considerate indicatori universali per inferire uno stato emotivo, mentre la valutazione attraverso annotazioni di valence e arousal, ha un bias dovuto all'interpretazione personale del relativo annotatore. Ecco che quindi, essere in grado di inferire valori nel dominio di arousal e valence attraverso l'analisi delle Action Units, assume una certa importanza, quanto eviterebbe la presenza di eventuali intepretazioni soggettive che si hanno quando si effettua una valutazione tramite annotazioni.\\
+\emph{Approccio seguito:}
+L'esistenza di un collegamento fra lo spazio di valence e arousal e quello delle Action Units, è stata ricercata in questo articolo, utilizzando due approcci di regressione lineare applicata al dataset RECOLA descritto alla sezione 4.1, contenente i dati relativi alle AUs e alle annotazioni di valence e arousal estratte da i primi cinque minuti di video che riprendono coppie di lavoratori in smart working. In una fase preliminare i valori annotati del dataset sono stati processati e ridefiniti secondo una gold standard, definita nel modello teorico, allo scopo di limitare l'effetto di pareri soggettivi delle annotazioni di arousal e valence. In seguito è stata fatta un'analisi andando ad applicare sul nuovo dataset due tecniche di regressione lineare, ARD (Automatic Relevance Determination), e ARIMA (AutoRegressive Integrated Moving Average). ARD è stato applicato per trovare un modello che  stimasse i valori di valence e arousal a partire dalle Action Units, secondo un apprendimento bayesiano sparso, allo scopo di evidenziare la rilevanza di ciascuna di esse  nella regressione. ARIMA invece, è un autoregressore che viene applicato alle serie temporali per fare previsioni sui valori futuri della serie stessa. I valori di valence e arousal sono stati predetti tenendo conto sia dei valori passati della serie temporale, sia delle Action Units, trattate dal modello come variabili esogene. I due approcci sono stati valutati e i loro risultati confrontati tra di loro, osservando le Action Units più significative nell'inferenza di serie di valence e arousal per ciascuno dei due approcci indicati, analizzando nel caso dell'autoregressione con ARIMA anche la differenza fra il contributo dato dalle Action Units e i valori precedenti della serie temporale.\\
+\emph{Contributi:}
+I contributi dati nel progetto descritto in questo articolo sono stati:
+\begin{itemize}
+\item Applicazione della tecnica ARD per la predizione di serie valence e arousal tramite Action Units e validazione
+\item Applicazione della tecnica di autoregressione ARIMA con test per la stazionarietà delle serie (ADF), scelta degli iperparametri del modello, e validazione.
+\end{itemize}
+
+\section{ANALISI DELLO STATO DELL'ARTE}\label{sec:statoarte}
+\IEEEPARstart{}
+Nella seconda metà del secolo scorso, si sono iniziati a studiare modi per interpretare lo stato emotivo di un individuo a partire dai comportamenti non verbali. Per quanto concerne le espressioni del volto, l'innovazione più importante è stata quella dell'introduzione del sistema FACS. Facial Action Coding System, proposto da Paul Ekman e Fallace Friese nel 1978, è un sistema che viene utilizzato per descrivere le espressioni di un volto attraverso l'estrazione di Action Units (AUs), ovvero le azioni fondamentali di un gruppo di muscoli della faccia\cite{ekman}. FACS è uno strumento solamente descrittivo, dal quale poi Ekman e Friesen hanno creato EMFACS (Emotion FACS), un sistema per derivare lo stato emotivo dalle espressioni facciali osservate, descrivendo sei famiglie emozionali. Critiche sull'universalità dell'interpretazione emozionale delle espressioni facciali, sono state rivolte ad Ekman da James Russel, il quale sostiene che il concetto di universalità esiste ma è minimale. Ci sono ossia persone in ogni parte del mondo che sono in grado di inferire lo stato emotivo altrui osservando le espressioni facciali, ma, emozioni come la rabbia, tristezza e altre categorie semantiche, non hanno una corrispondenza univoca con le espressioni facciali, alle quali, persone di diverse culture possono attribuire diversi significati emotivi\cite{russel}. Negli ultimi anni è aumentato l’interesse per il riconoscimento e l’analisi di espressioni facciali automatico. OpenFace è un tool open source che permette il rilevamento dei landmark, la stima della posizione della testa e il riconoscimento automatico di Action Units da video. Il tool permette di estrarre due tipi di informazioni legate ad ogni Action Units: un valore binario associato alla presenza di un dato pattern e un altro legato alla sua intensità, quest’ultimo valutato con  un valore tra 0 e 5, dove valori al di sotto di 1 indicano una presenza debole.\cite{openface}
+Sebbene attraverso il FACS sia possibile inferire lo stato emotivo da un volto, negli ultimi anni l'interesse si è spostato su spazi di rilevamento delle emozioni continui, spesso in termini di arousal e valence. Con lo scopo di effettuare un analisi delo stato emotivo attraverso un problema di regressione, è stato presentato AVEC\cite{avec}, un workshop mirato all'utilizzo di tecniche di machine learning per l'analisi emotiva automatica, di audio, contenuti visuali e segnali fisiologici che utilizza lo stesso database RECOLA descritto in questo progetto.
+Un altro dataset multimodale che è stato definito sulla base degli stessi criteri è AMHUSE, con un focus maggiore nel rilevamento dello stato emotivo di divertimento. Assieme al dataset è stato creato un tool di annotazione web, DANTE, per produrre valutazioni in termini di arousal e valence per un video in modo continua e non frame per frame.\cite{ahmuse}.\\
+\section{MODELLO TEORICO}\label{sec:modello}
+\subsection{Automatic Relevance Determination}
+ARD è basato sulla definizione del modello probabilistico Bayesian Ridge Regression e viene chiamato in letteratura anche apprendimento Bayesiano sparso \cite{ardimp}. Per descrivire il modello probabilistico alla base è necessario definire  i modelli di regressione Bayesiana e Ridge regression. \\
+\emph{Ridge Regression:}
+é una tecnica di regressione introdotta allo scopo di evitare il problema dell'overfitting che nasce nell'utilizzare i modelli di regressione OLS (Ordinary Least Squares) che stimano i pesi di ogni feature minimizzando la somma dei quadrati dei residui (RSS). Viene introdotto un BIAS, imponendo un vincolo sulla dimensione dei coefficienti del modello stimati, trasformando il problema da minimizzare nel seguente:\\
+\[w = \argmin_{w \in \mathbb{R}} \norm{Y-Xw}_2^2 + \lambda \norm{w}_2^2 \tag{1}\]
+dove il parametro \(\lambda\) penalizza il valore residuo della somma dei quadrati (RSS) aumentandolo e di conseguenza, viene scelto il modello (w, \(\lambda\)) che minimizza il valore di MSE.
+\emph{Regressione Bayesiana}: Nei modelli Bayesiani, la regressione viene formulata utilizzando distribuzioni di probabilità e l'output  \(y\) è generato da una distribuzione Gaussiana caratterizzata da una media e da una varianza, il che significa che un dato predetto dal modello, non corrisponde ad un singolo punto ma bensì, ad una distribuzione. Lo scopo dei regressori Bayesiani non è quello di trovare il valore migliore per i parametri di un modello ma  determinarne la distribuzione a posteriori, definita tramite probabilità condizionata secondo la regola di Bayes:
+\[P(w|y,X) = \frac{P(y|w,X)P(w|X)}{P(y|X)} \tag{2} \] 
+\[Posterior = \frac{Likelihood * Prior}{Normalization} \tag{3}\]
+con \(X,y\) dati di training, e w parametri del modello.
+Il modello probabilistico generato con la regressione Bayesiana è definito da
+\[P(y|X,w,\alpha) = \mathcal{N}(y|Xw,\alpha) \tag{4}\]
+con \(\alpha\) variabile casuale stimata dai dati X.\newpage\emph{Bayesian Ridge Regression:} Stima un modello probabilistico per un problema di regressione come quello appena descritto, dove Il prior per i parametri w del modello è dato da una distribuzione Gaussiana sferica con \(\mu\) = 0:
+\[P(w|\lambda,\alpha) = \mathcal{N}(w|0,\lambda^{-1}\mathbb{I}_p) \tag{5}\]
+con  \(\lambda\) e \(\alpha\), entrambi gamma distribuiti, rappresentanti la precisione della distribuzione dei pesi w e la precisione della distribuzione del rumore. La gaussiana sferica è descritta da una matrice di covarianza pxp,con p numero di features del modello, diagonale avente il valore della varianza \(\lambda^{-1}\) sugli elementi della diagonale principale.\\
+\emph{Automatic Relevance Determination:} Il modello ARD utilizzato per questo progetto è simile alla regressione Bayesian Ridge, con la differenza che la gaussiana definita sui prior è ellittica e non sferica, il che porta il modello probabilistico a stimare coefficienti w più sparsi.
+\[P(w|\lambda,\alpha) = \mathcal{N}(w|0,A^{-1}) \tag{6}\]
+con diag(A) = \(\lambda\) = {\(\lambda_1\), ..., \(\lambda_p\)}.
+In contrasto con il modello Bayesian Ridge Regression inoltre, ogni coefficiente \(w_i\) ha una propria deviazione standard \(\lambda_i\) e il prior su tutti i parametri \(\lambda\) viene scelto per essere quello gamma distribuito dagli iperparametri \(\lambda_1\) e \(\lambda_2\).\\
+Per un problema di regressione lineare, si stima:
+\[P(w,\lambda,\alpha|y) = P(w|y,\lambda,\alpha) P(\lambda,\alpha|t) \tag{7}\]
+sulla base dialtri quattro iperparametri \(\alpha_1\), \(\alpha_2\), \(\lambda_1\), \(\lambda_2\) che vengono utilizzati per definire i prior \(\alpha\) e \(\lambda\) secondo una distribuzione gamma. Quest'ultimi, nell'implementazione usata nel progetto, vengono assegnati di default e costituiscono un prior di tipo non informativo.\\
+\emph{Distribuzioni gamma:}
+Una variabile casuale e continua X è gamma distribuita con parametri \(\alpha >\) 0, \(\lambda >\) 0 e indicata come \(X \sim\ Gamma(\alpha,\lambda)\) se la sua funzione di densità di probabilità è definita come:
+\[\begin{cases}
+f_X(x) = \frac{\lambda^\alpha x^{\alpha-1} e^{-\lambda x}}{\Gamma(\alpha)}\quad x > 0\\
+0\quad altrimenti\\
+\end{cases}
+ \tag{8}\]
+dove \(\Gamma(\alpha)\) è detta funzione gamma, e rappresenta un'estensione della funzione fattoriale per i numeri reali e complessi \cite{gammadist}. Per ogni \(\alpha \in \mathbb{R}\):
+\[\Gamma(\alpha) = \int_{0}^{\infty} x^{\alpha-1}e^{-x} dx,\quadfor \alpha > 0 \tag{9}\]
+\emph{Validazione di un modello ARD:}
+La stima dei parametri del modello viene fatta massimizzando in modo iterativo il logaritmo della likelihood marginale:
+\[p(y|\lambda,\alpha) = \int p(y|w,\alpha) p(w|\lambda)dw \tag{10}\]
+L'evidenza del modello viene utilizzata per poter confrontare la bontà di modelli di diversa complessità senza utilizzare set di validazione.
+\newpage
+\subsection{ARIMA per l'autoregressione di serie temporali}
+\IEEEPARstart{} 
+ARIMA (AutoRegressive Integrated Moving Average) è un modello di autoregressione a media mobile per serie temporali che non soddisfano la condizione di stazionarietà. Nasce come estensione di ARMA (AutoRegressive Moving Average),  un modello applicabile alle serie temporali stazionarie che si compone di due parti: AR e MA.
+\begin{itemize}
+\item
+I modelli di autoregressione (AR) utilizzano alcuni valori precedenti della serie temporale come input per l’equazione di regressione che serve a predire il valore successivo della serie. 
+\[y_t=c  + \sum_{p=1}^P \varphi_p y_{t-i} +\epsilon_t \tag{11}\]
+Con \(c\) costante e \(\epsilon_t\) white noise.\\
+\item 
+Un modello a media mobile (MA)  è simile al modello di autoregressione AR, con la differenza che la combinazione lineare per la regressione viene fatta su termini stocastici dei valori precedenti della serie (white noise), anzichè sui valori della stessa. 
+\[y_t=\mu  + \epsilon_t + \sum_{q=1}^Q \theta_q \epsilon_{t-i} \tag{12} \]
+Con \(\mu\) valore atteso di \(y_t\) (\(\mu\) = 0) e \(\epsilon_{t-i}\) white noise.
+\end{itemize}
+Il modello di autoregressione a media mobile (ARMA) è così definito:
+\[y_t=c  + \sum_{p=1}^P \varphi_p y_{t-i}  + \sum_{q=1}^Q \theta_q
+\epsilon_{t-i}  +\epsilon_t \tag{13}\]
+Il modello ARIMA, è un'estensione di ARMA, e viene utilizzato per l'autoregressione serie temporali non stazionarie. 
+Molti metodi statistici di predizione sono basati sull’assunzione che le serie temporali possano essere approssimate a serie stazionarie applicando delle trasformazioni matematiche. Le predizioni vengono convertite applicando l’operatore inverso a quello della trasformazione per ottenere i valori della serie originale. Per addestrare un modello ARIMA devono essere definiti i seguenti iperparametri che ne definiscono l'ordine:
+\begin{itemize}
+\item p: il numero di osservazioni precedenti da includere nella predizione dei valori della serie temporale.
+\item d: il grado di differenza applicato alla serie temporale non 
+stazionaria
+\item q: la dimensione della finestra di media mobile
+\end{itemize}
+Il modello ARIMA differisce da ARMA per la presenza dell'iperparametro d, che viene utilizzato per permettere l'autoregressione di serie temporali anche non stazionarie.\\
+\emph{Serie stazionaria:} Un approccio comune nell’analisi delle serie temporali è quello di considerarle come parte di una realizzazione di un processo stocastico.
+Un processo stocastico discreto è stazionario se, per una distribuzione dimensionale finita \(F_X\) è vero che:
+\[F_X(x_{t_{1+t}},...,x_{t_{n+t}}) = F_X(x_{t_1},...,x_{t_n}) \tag{14}\] \\
+con  T \(\subset \mathbb{Z}\) , n \(\in \mathbb{N}\)(T \(\subset \mathbb{R}\), T \(\in \mathbb{R}\) nel caso continuo). 
+\cite{stocastic}
+In una serie stazionaria, definita anche stazionaria in senso stretto o stazionaria forte, la distribuzione di probabilità congiunta non cambia se viene traslata nel tempo e di conseguenza non cambiano anche i valori di media e varianza.
+Durante la prova, la stazionarietà delle serie temporali è stata verificata applicando il test ADF.\\
+\emph{Augmented Dickey–Fuller test:} ADF test, è un metodo utilizzato per verificare la stazionarietà di serie temporali proposto da Dickey and Fuller (1979, 1981). Il test si basa sull'assunzione che la verifica della condizione di non stazionarietà di una serie sia  equivalente al test per l’esistenza di un’unità radice (unit root).\cite{adf}. Il test ADF consiste nell’accettare o meno l’ipotesi nulla sull’esistenza di un’unità radice in una serie temporale:
+ADF è un'estensione del test Dickey Fuller, che permette di includere fino a p osservazioni precedenti della serie (AR(p)), al fine di rimuovere l’autocorrelazione. La scelta dell’ordine p di autoregressione viene fatta utilizzando il criterio di informazione di Akaike (AIC), definito in seguito.
+il test confronta  il valore della statistica t
+\[DF_\tau = \frac{\widehat{\gamma}}{SE(\widehat{\gamma})}\tag{15}\]
+con i valori critici di Dickey-Fuller test per un certo livello di confidenza. Se il test statistico calcolato è minore dei valori critici, l’ipotesi nulla viene rifiutata e la serie viene considerata stazionaria.\\
+\emph{Akaike Information Criterion:}
+AIC viene utilizzato come parametro per definire la bontà di un modello statistico. Data la funzione di massima verosimiglianza per un modello, il criterio di informazione di Akaike (AIC) viene calcolato come:
+\[AIC = 2k - 2 \log(L)\tag{16}\]
+Dati più modelli, la scelta del modello migliore ricade su quello avente AIC minimo. Il valore di AIC cresce con il numero di parametri k e diminuisce se cresce il logaritmo della likelihood L, penalizzando i modelli che generano overfitting.\\\\
+L'insieme dei modelli da valutare confrontando i valori di AIC, è stato scelto variando gli ipèrparametri del modello ARIMA. Se da una parte l'ordine d delle differenze da applicare alla serie  dipende dall'esito di ADF test, dall'altra i valori di p e q per i modelli AR e MA possono essere selezionati attraverso l'utilizzo di funzioni legate all'autocorrelazione.\\
+\emph{Funzione di autocorrelazione (ACF):}
+L’autocorrelazione esprime la dipendenza lineare che esiste tra un processo stocastico al tempo t e se stesso al tempo t+k ed è definita come:
+\[\rho_k(t) = \frac{cov(y_t, y_{t+k})}{\sigma(y_t)\sigma(y_{t+k})} \tag{17} \]
+ed è rappresentabile graficamente attraverso l'utilizzo di un correlogramma, che esprime i valori di autocorrelazione per ogni lag su cui è stata calcolata.\\
+\emph{Funzione di correlazione parziale (PACF):}
+Nei processi stocastici, parte della correlazione fra una  \(Y_t\) e \(Y_{t+k}\) è dovuta alla correlazione che esse hanno con i ritardi intermedi \(Y_{t+1}\), \(Y_{t+2}\), ..., \(Y_{t+k-1}\). PACF è una funzione permette di misurare l'autocorrelazione tra  \(Y_t\) e \(Y_{t+k}\) senza considerare l'effetto dei ritardi intermedi.\\
+\emph{Metriche per la valutazione:}
+L'errore di predizione di un modello ARIMA su un validation set è stato calcolato utilizzando metriche scale-dependent,in quanto sono semplici da utilizzare e non era necessario confrontare modelli con diverse unità di misura diverse. Sono state utilizzate le metriche RMSE e MAE definite di seguito:
+\begin{itemize}
+    \item Root mean square error:lo stimatore \(\hat{y}\) di un parametro y è definito come la radice quadrata dell'errore quadratico medio:
+    \[RMSE(y,\hat{y}) = \sqrt{\frac{\sum_{i=1}^{n} (y_i - \hat{y_i})^2} {n}} \tag{18}\]
+
+    \item Mean absolute error: calcola il valore assoluto medio della differenza fra il valore di un dato predetto e quello vero:
+    \[MAE(y,\hat{y}) = \frac{\sum_{i=1}^{n} |y_i - \hat{y_i}|} {n}\tag{19}\]
+\end{itemize}
+
+
+
+\section{SIMULAZIONE E ESPERIMENTI}\label{sec:simulazione}
+\textbf{}
+Allo scopo di analizzare una dipendenza fra i valori dello spazio emotivo valence e arousal e il dominio delle Action Units, sono state applicate le tecniche di regressione lineare ARD e ARIMA descritte nella sezione precedente, con lo scopo di analizzare l'importanza di ciascun Action Units nella predizione e, nel caso di ARIMA quanto esse sono significative rispetto al contributo dato dai lags precedenti della serie per l'autoregressione di nuovi valori.
+\subsection{Dataset}
+L’esperimento è stato condotto utilizzando RECOLA, un dataset francese contenente fra le altre, l'estrazione delle Action Units effettuata tramite OpenFace e le annotazioni di arousal e valence, fatte da 6 annotatori francesi, 3 uomini e 3 donne, osservando video di coppie di lavoratori in smart working \cite{recola}.
+Il dataset utilizzato per la prova si compone di 14 serie di annotazioni di video della durata di 300 secondi e 7501 frame ciascuno, valutati da ciascun annotatore con un valore compreso fra -1 e 1. Per motivi legati all'esperimento effettuato in questo progetto sono state apportate delle modifiche al dataset. La prima riguarda le Action Units: per ciascuna di esse si è trascurato il valore binario relativo alla presenza e si è tenuto conto solo del valore di intensità, per la prova riscalato da un range di valori [0,10] a uno di [0,1], in linea con l'intervallo di valori attribuiti alle annotazioni di arousal e valence (in valore assoluto). Inoltre, per limitare il problema legato a valutazioni dettate da un'interpretazione personale degli annotatori, è stata applicata una gold standard per le serie annotate nello spazio emotivo, ottenuta secondo EWE (Evaluator Weighted Estimator):
+
+\[r_k^i=\frac{\sum_{n=1}^N (x_{n,k}^i - \mu_k^i) (x_{n,k}^{MLE,i} - \mu^{MLE,i})}{ \sqrt{\sum_{n=1}^N (x_{n,k}^i - \mu_k^i)^2 }\sqrt{\sum_{n=1}^N (x_{n}^{MLE,i} - \mu^{MLE,i})^2 }}\tag{20}\]
+
+EWE valuta l’affidabilità di un annotatore \(k\) assegnandogli un peso \(rk\), sulla base di \(n\) annotazioni in uno spazio emotivo \(i \in {V,A}\). Un annotatore si ritiene affidabile laddove le sue valutazioni si discostino poco da quelle fatte dagli altri annotatori.\cite{ewe}
+Sulla base del livello di accordo tra le valutazioni fatte dagli annotatori, viene definita una "gold standard":
+\[x_n^i=\frac{1}{\sum_{k=1}^K(r{k}^i)}{\sum_{k=1}^Kr_k^ix_{n,k}}\tag{21}\]
+che definisce un'annotazione aggregata definita sulla base dell'affidabilità degli annotatori ricavata con EWE.
+
+\subsection{Esperimento con ARD}
+L’ARD regression è stata applicata utilizzando le sole Action Units come features per la stima dei parametri del modello.
+La stima dei pesi \(w\) delle features  è stata fatta a partire da valori iniziali di \(w = 0\), assumendo non ci fosse una conoscenza a priori riguardo una significatività maggiore  di alcune Action Units nella regressione di valori di arousal e valence. Il dataset utilizzato per gli esperimenti su ARD è un sottoinsieme di RECOLA, composto da due 2 serie di video, con 15002 frames annotati che sono stati divisi in un training set e in un validation set con un rapporto di 4:1.
+Sul training set è stato definito un modello lineare di ARD regression, allo scopo identificare quali Action Units fossero più significative nella predizione.
+Come definito nel modello teorico, ARD regression stima:
+\[P(w|\lambda,\alpha) = \mathcal{N}(w|0,A^{-1})\]
+dove la distribuzione della probabilità a posteriori è ottenuta massimizzando il logaritmo della likelihood marginale. Il modello generato in fase di training è stato poi applicato sul validation set per valutare l'accuratezza della predizione, utilizzando le metriche RMSE e MAE descritte nel modello teorico.
+
+\subsection{Esperimento con ARIMA}
+Attraverso l'utilizzo di ARIMA, è stata fatta un'autoregressione sui valori di arousal e valence, utilizzando le Action Units come variabili esogene. Il modello teorico definito, quindi, è stato applicato nella seguente forma:
+\[y_t=c  + \sum_{p=1}^P \varphi_p y_{t-i}  + \sum_{q=1}^Q \theta_q
+\epsilon_{t-i}  +\epsilon_t\ +  \sum_{m=1}^M\alpha_ma_{t,m}\tag{22}\]
+dove  \(\alpha_m\) è il peso associato alla Action Units numero \(m\) con valore di intensità \(a_{t,m}\) per il frame \(t\)\\
+\emph{Split del dataset}: L'esperimento è stato eseguito dividendo il dataset di 14 serie annotate e quello delle relative Action Units in un training set composto da 12 delle serie e in un validation set composto dalle restanti 2.\\
+\emph{Scelta degli iperparametri}:
+L'ordine (p,d,q) per il modello ARIMA è stato definito sulla base di informazioni relative alla stazionarietà della serie su cui è applicato, e alle funzioni di autocorrelazione. Per la scelta dell'iperparametro d è stato applicato il test ADF per la stazionarietà. I risultati del test sono riportati in tabella 1 e tabella 2 Sia per la serie di training di arousal che per quella di valence, con d=1 differenze applicate, la serie è risultata stazionaria, in quanto i valori della statistica t risultano minori dei valori critici. La scelta dell'iperparametro p per l'ordine di autoregressione è stata fatta con PACF, dalla cui analisi è stato estratto manualmente un range di valori assegnabili p = [3,4,5,6,7,8,9]. L'iperparametro q legato alla media mobile è stato assegnato di default a 0, sebbene sia stata analizzata la funzione di autocorrelazione per individuarne possibili valori. Questo perchè, per fini di progetto,lo scopo non è quello di trovare il migliore modello di ARIMA, ma confrontare i pesi relativi alle Action Units con i parametri AR del modello, associati ai valori dei lag precedenti.\\
+\begin{table}
+\begin{center}
+ \begin{tabular}{|{1cm}|{1cm}|{1cm}|{1cm}|} 
+ \hline
+\textbf{ADF Test Statistic}  &   \textbf{-11.36152}\\
+ \hline
+ Critical Value (1\%) &  -3.430423\\ 
+ \hline
+ Critical Value (5\%) & -2.861572\\
+ \hline
+ Critical Value (10\%) & -2.566787\\
+ \hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:table-name}-Risultati ADF per valence}
+\end{table}
+
+\begin{table}
+\begin{center}
+ \begin{tabular}{|{1cm}|{1cm}|{1cm}|{1cm}|} 
+ \hline
+ \textbf{ADF Test Statistic}  & \textbf{-12.41049}\\
+ \hline
+ Critical Value (1\%) &  -3.430423\\ 
+ \hline
+ Critical Value (5\%) &  -2.861572\\
+ \hline
+ Critical Value (10\%) & -2.566787\\
+ \hline
+\end{tabular}
+\end{center}
+\caption{\label{tab:table-name}-Risultati ADF per arousal}
+\end{table}
+Si riportano i risultati dell'applicazione di PACF in fase di esperimento sulle serie di training di arousal e valence in figura 1 e figura 2.
+\begin{figure}[h]
+    \centering
+    \subfigure{
+        \includegraphics[width=4cm]{ACF_valence.png}
+    }
+     \subfigure{
+        \includegraphics[width=4cm]{ACF_arousal.png}
+    }
+  \caption{(a) ACF valence (b) ACF arousal}
+    \label{fig:acf}
+\end{figure}
+\begin{figure}[h]
+    \centering
+    \subfigure{
+        \includegraphics[width=4cm]{PACF_valence.png}
+    }
+     \subfigure{
+        \includegraphics[width=4cm]{PACF_arousal.png}
+    }
+  \caption{(a) PACF valence (b) PACF arousal}
+    \label{fig:pacf}
+\end{figure}
+Confrontando la bontà dei modelli ARIMA(p,d=1,q=0) minimizzando il valore di AIC, ARIMA(p=9,d=1,q=0) è risultato essere il modello migliore sia nel caso della serie di valence sia per arousal. Addestrando il modello, sono stati stimati i pesi associati ai coefficienti delle features associate ai lags e alle Action Units.\\
+\emph{Validazione del modello:}
+Il modello addestrato è stato applicato al validation set, applicando una funzione di predizione  multistep, che consente dato un modello, di predire un set di valori successivi di una serie.
+E' stata poi valutata l'accuratezza della predizione utilizzando metriche scale-dependent come RMSE e MAE.
+
+\begin{figure*}[!h]
+    \centering
+    \subfigure{
+        \includegraphics[width=6.5cm]{ard_val_weight.png}
+    }
+     \subfigure{
+        \includegraphics[width=6.5cm]{ard_val_evidence.png}
+    }
+    
+  \caption{ Valence (a) Coefficienti relativi alle Action Units (b) Marginal log-likelihood del modello}
+    
+\end{figure*}\\
+\begin{figure*}[!ht]
+    \centering
+    \subfigure{
+        \includegraphics[width=6.5cm]{ard_aro_weight.png}
+    }
+     \subfigure{
+        \includegraphics[width=6.5cm]{ard_aro_evidence.png}
+    }
+  \caption{Arousal (a) Coefficienti relativi alle Action Units (b) Marginal log-likelihood del modello}
+\end{figure*}
+\begin{table*}
+  \centering
+   \begin{subtable}
+ \begin{tabular}{|{0.4cm}|{0.5cm}|{0.5cm}|{0.4cm}|{0.5cm}|{0.4cm}|}
+ \hline
+ AUs & aspetto & coeff (+) & AUs & aspetto & coeff (-)\\
+ \hline
+ AU06 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au06.png}} & 0.814356 & AU09  & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au09.png}} & -0.806893 \\
+ \hline
+ AU20 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au20.png}}  & 0.362639 & AU02 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au02.png}} & -0.389306 \\
+ \hline
+ \end{tabular}
+ \end{subtable}
+  \begin{subtable}
+ \begin{tabular}{|{0.4cm}|{0.5cm}|{0.5cm}|{0.4cm}|{0.5cm}|{0.4cm}|}
+ \hline
+ AUs & aspetto & coeff (+) & AUs & aspetto & coeff (-)\\
+ \hline
+ AU06 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au06.png}} & 0.708536 & AU02  & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au02.png}} & -0.771476\\  
+ \hline
+  AU01 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au01.png}}  & 0.410859 & AU09 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au09.png}} & -0.538392 \\
+ \hline
+ \end{tabular}
+ \end{subtable} 
+ \caption{Action Units significative secondo la stima fatta con ARD per valence (3a) e arousal (3b)}
+\end{table*}
+\subsection{Dettagli implementativi}
+Le tecniche di regressione lineare sono state applicate utilizzando la libreria \(scikitlearn\)  di Python per il machine learning \cite{scikit}. In particolare, nell'ARD Regression, per determinare i prior sulla precisione dei pesi \(\lambda\) e sul rumore \(\alpha\),  i valori degli iperparametri per la distribuzione gamma \(\alpha_1\), \(\alpha_2\), \(\lambda_1\), \(\lambda_2\) sono stati assegnati ai valori di default (\(10^{-6}\)),.
+Per il modello ARIMA invece è stato utilizzato il package \(statsmodel\), che fornisce classi e funzioni per la stima di diversi modelli e test di tipo statistico.
+\section{Risultati ottenuti}\label{sec:risultati}
+\IEEEPARstart{}
+I risultati delle prove svolte sono riportati come segue. L'applicazione del modello ARD su arousal e valence stima una distribuzione dei pesi associati alle Action Units riportata nelle figure 3 e 4. Per quanto riguarda l'esperimento effettuato con ARIMA, l'analisi dei coefficienti stimati del modello, rappresentati graficamente nelle figure 5 e 6, evidenzia che i pesi associati alle Action Units hanno valori in valore assoluto molto più piccoli rispetto a quelli associati ai valori precedenti della serie, potendo così affermare che le variabili esogene portano un contributo minimo alla predizione di valence e arousal, e che quindi non è possibile considerare ARIMA un approccio adatto agli scopi di progetto.
+La tabella 5 mostra i valori delle metriche di RMSE e MAE applicate per valutare la bontà delle predizioni, la predizione effettuata con ARIMA non è molto attendibile, in particolare nel caso di valence (RMSE e MAE molto alti), alcuni valori predetti sono maggiori di 1, che è il limite superiore dell'insieme di valori associati ad arousal e valence, come mostrato in figura 7.Le tabelle 3 e 4 riassumono le Action Units rilevanti nel modello ARD e nel modello ARIMA per valence e arousal, individuando quali contribuiscono a valori positivi e negativi delle due dimensioni dello spazio emotivo annotato. Analizzando i risultati ottenuti con il modello ARD si evince che sono più significative le Action Units associate agli occhi, in particolare Au06 contribuisce ad una valence e arousal positiva mentre Au09 e Au02 forniscono valori negativi.
+\begin{figure*}[!h]
+    \centering
+    \subfigure{
+        \includegraphics[width=6.5cm]{abs_arima_val_AUs.png}
+    }
+     \subfigure{
+        \includegraphics[width=6.5cm]{arima_val_AUs.png}
+    }
+    
+  \caption{Valence (a) Coefficienti modello ARIMA in scala logaritmica del valore assoluto (b) Coefficienti relativi alle AUs}
+    \label{fig:pacf}
+\end{figure*}
+\begin{figure*}
+    \centering
+    \subfigure{
+        \includegraphics[width=6.5cm]{abs_arima_aro_AUs.png}
+    }
+     \subfigure{
+        \includegraphics[width=6.5cm]{arima_aro_AUs.png}
+    }
+    
+  \caption{Arousal (a) Coefficienti modello ARIMA in scala logaritmica del valore assoluto (b) Coefficienti relativi alle AUs }
+    \label{fig:pacf}
+\end{figure*}
+\begin{figure*}
+    \centering
+    \subfigure{
+        \includegraphics[width=8cm]{arima_valid_val.png}
+    }
+     \subfigure{
+        \includegraphics[width=8cm]{arima_valid_aro.png}
+    }
+     \caption{Predizione del validation set con il modello ARIMA (a) su valence (b) su arousal}
+\end{figure*}
+\begin{table*}[!h]
+  \centering
+   \begin{subtable}
+ \begin{tabular}{|{0.4cm}|{0.5cm}|{0.5cm}|{0.4cm}|{0.5cm}|{0.4cm}|}
+ \hline
+ AUs & aspetto & coeff (+) & AUs & aspetto & coeff (-)\\
+ \hline
+ AU09 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au09.png}} & 0.000669 & AU14 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au14.png}} & -0.0365  \\
+ \hline
+ AU12 &  \raisebox{-\totalheight}{\includegraphics[scale = 0.27]{au12.png}} & 0.000635 & AU04 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au04.png}} & -0.00032\\
+ \hline
+ \end{tabular}
+ \end{subtable}
+  \begin{subtable}
+ \begin{tabular}{|{0.4cm}|{0.5cm}|{0.5cm}|{0.4cm}|{0.5cm}|{0.4cm}|}
+ \hline
+ AUs & aspetto & coeff (+) & AUs & aspetto & coeff (-)\\
+ \hline
+ AU25 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au25.png}} & 0.000493 & AU04  & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au04.png}} & -0.000546\\
+ \hline
+ AU20 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au20.png}}  & 0.000365 & AU14 & \raisebox{-\totalheight}{\includegraphics[scale = 0.3]{au14.png}} & -0.000443 \\
+ \hline
+ \end{tabular}
+ \end{subtable} 
+ \caption{Action Units significative secondo la stima fatta con ARIMA per valence (5a) e arousal (5b)}
+\end{table*}
+\begin{table}[!h]
+ \centering
+ \begin{tabular}{|{4cm}|{6cm}|{6cm}|} 
+ \hline
+\textbf{Metrica} & \textbf{MAE}  & \textbf{RMSE}\\
+ \hline
+ ARD valence &  0.19782 & 0.23346  \\ 
+ \hline
+ ARD arousal & 0.30628 & 0.39398 \\
+ \hline
+ ARIMA valence & 0.79782 & 0.88735 \\
+ \hline
+ ARIMA arousal & 0.46069 & 0.55871\\
+ \hline
+\end{tabular}
+\caption{\label{tab:table-name}-RMSE e MAE per la valutazione dei modelli}
+\end{table}
+\\\\\newpage\newpage\newpage\newpage\newpage\newpage
+\section{CONCLUSIONI}\label{sec:conclusioni}
+\IEEEPARstart{}In questo progetto è stata ricercata una dipendenza fra l'estrazione di Action Units e lo spazio emotivo di valence e arousal analizzando tecniche di regressione lineare. Dalla stima di un modello ARIMA su una serie temporale, si evince che i valori precedenti della  serie restano un fattore determinante nella predizione di nuovi valori di arousal e valence mentre il contributo delle espressioni facciali è poco significativo. Questo indica che, nel caso lineare, il modello ARIMA non è una buon approccio per investigare una dipendenza fra le due dimensioni. Dagli esperimenti effettuati con la regressione ARD invece, si evince che nel caso lineare, la presenza di alcune Action Units ha più rilevanza nella stima di arousal e valence, in particolare è risultato che si tratta di pattern legati alle espressioni degli occhi.
+\\
+\begin{thebibliography}{1}
+\bibitem{ellsworth}
+R.~M.~Nesse,~P.~C.~Ellsworth\emph{ Evolution, Emotions, and Emotional Disorders } University of Michigan Emotions
+\bibitem{ekman}
+Ekman P, Friesen W. V. \emph{The Facial Action Coding System: A technique for the measurement of facial movement. Palo Alto, CA: Consulting Psychologists Press} (1978)
+\bibitem{russel}
+ Russel, J. A.\emph{Is Is There Universal Recognition of Emotion From Facial Expression?}A Review of the Cross-Cultural Studied, Psychological Bulletin. 1994.
+
+\bibitem{openface}
+T. Baltrusaitis, P. Robinson, L. Morency\emph{OpenFace: an open source facial behavior analysis toolkit}, 2016 IEEE Winter Conference on Applications of Computer Vision (WACV)
+\bibitem{avec}
+F. Ringeval, B.Schuller, M. Valstar, S. Jaiswal, E. Marchi,
+D. Lalanne, R. Cowie and M. Pantic. 2015. \emph{Av+ ec 2015: The first affect recognition challenge bridging across audio, video, and physiological data.}In Proceedings of the 5th International Workshop on Audio/Visual Emotion Challenge
+\bibitem{ahmuse}
+G.~Boccignone, D.~Conte, V.~Cuculo, R~Lanzarotti\emph{ AMHUSE: A Multimodal dataset for HUmour SEnsing}
+
+\bibitem{ardimp}M. E. Tipping\emph{Sparse Bayesian Learning and the Relevance Vector Machine}, Journal of Machine Learning Research, Vol. 1, 2001, pp. 211-244
+\bibitem{gammadist}
+CHOI, S. C., AND R. WETTE: \emph{Maximum Likelihood Estimation of the Parameters of the Gamma Distribution and Their Bias} Technometrics, 2 (1969), 683-690.
+\bibitem{stocastic}
+Cox, D.R. and Miller, H.D. (1965) \emph{The Theory of Stochastic Process}. Chapman & Hall, London.
+\bibitem{adf}
+Dickey D., Fuller W. (1979) \emph{Distribution of the Estimator for Autoregressive Time series with a Unit Root}, Journal of the American Statistical Association, 74, pp. 427-431
+\bibitem{recola}
+F.~Ringeval, A.~Sonderegger, J.~Sauer, D.~Lalanne,\emph{ Introducing the RECOLA Multimodal Corpus of Remote Collaborative and Affective Interactions}
+\bibitem{ewe}
+Michael Grimm and Kristian Kroschel. 2005. \emph{Evaluation of natural emotions using
+self assessment manikins. In Automatic Speech Recognition and Understanding},
+2005 IEEE Workshop on. IEEE, 381–385
+
+\bibitem{scikit}
+F. Pedregosa, G. Varoquaux, A. Gramfort, V. Michel, B. Thirion,
+O. Grisel, M. Blondel, P. Prettenhofer, R. Weiss, V. Dubourg, J. Vanderplas, A. Passos, D. Cournapeau, M. Brucher, M. Perrot, and
+E. Duchesnay, “Scikit-learn: Machine learning in Python,” Journal
+of Machine Learning Research, vol. 12, pp. 2825–2830, 2011.
+\end{thebibliography}
+
+
+
+
+\end{document}
